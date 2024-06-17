@@ -1,15 +1,20 @@
 #ifndef GBA_ARM7TDMI_INSTRUCTIONS
 #define GBA_ARM7TDMI_INSTRUCTIONS
+module;
+#include <iostream>
+#include <variant>
+#include <vector>
 
 export module arm7tdmi.instructions;
 
-#include <iostream>
-
-#include <variant>
-using std::variant;
-
 import bitutil;
+import types;
+
 import arm7tdmi.instruction_definition;
+import arm7tdmi.cpu_state;
+
+using std::vector;
+using std::variant;
 
 export {
 
@@ -79,7 +84,7 @@ struct SingleDataSwap : public Ins {
   static inline const gword_t MASK_B = flag_mask(22);
 
   bool b;
-  byte rn, rd, rm;
+  byte irn, ird, irm;
 
   SingleDataSwap(gword_t instruction) 
     : Ins(instruction),
@@ -173,6 +178,7 @@ struct Load : public Ins {
         }
         break;
       default:
+        break;
     }
   }
 
@@ -207,7 +213,7 @@ struct RotateOperand : public ShifterOperand {
   ShifterOperandValue evaluate(CpuState &state) override {
     constexpr gword_t MASK = flag_mask(31);
 
-    gword_t shifter = ror(imm, rotate * 2);
+    gword_t shifter = ror<gword_t>(imm, rotate * 2);
     gword_t carry = rotate ? shifter & MASK : state.get_flag(CpuState::C_FLAG);
     
     return { shifter, carry };
@@ -387,14 +393,14 @@ struct CheckedResult {
   static CheckedResult add(gword_t x, gword_t y) {
     gword_t result = x + y;
     gword_t carry = result < x;
-    gword_t overflow = (x & SIGN_BIT == y & SIGN_BIT) && (result & SIGN_BIT != x & SIGN_BIT);
+    gword_t overflow = (x & SIGN_BIT) == (y & SIGN_BIT) && (result & SIGN_BIT) != (x & SIGN_BIT);
     return { result, carry, overflow };
   }
 
   static CheckedResult sub(gword_t x, gword_t y) {
     gword_t result = x - y;
     gword_t carry = result > x;
-    gword_t overflow = (x & SIGN_BIT != y & SIGN_BIT) && result & SIGN_BIT != x & SIGN_BIT;
+    gword_t overflow = (x & SIGN_BIT) != (y & SIGN_BIT) && (result & SIGN_BIT) != (x & SIGN_BIT);
     return { result, carry, overflow };
   }
 };
@@ -683,8 +689,8 @@ struct CountLeadingZeros : public Ins {
 
   CountLeadingZeros(gword_t instruction)
     : Ins(instruction),
-      irm(nibbles[0]),
-      ird(nibbles[3]) { }
+      ird(nibbles[3]),
+      irm(nibbles[0]) { }
 };
 
 struct EnhancedDSPAdditive : public Ins {
@@ -729,16 +735,16 @@ struct EnhancedDSPMultiplicative : public Ins {
       x(nibbles[1] | 0b0010),
       y(nibbles[1] | 0b0100),
       op((nibbles[5] & 0b0110) >> 1),
-      irm(nibbles[0]),
-      irs(nibbles[2]),
+      ird(nibbles[4]),
       irn(nibbles[3]),
-      ird(nibbles[4]) { }
+      irs(nibbles[2]),
+      irm(nibbles[0]) { }
 };
 
 struct UndefinedInstruction : public Ins {
   gword_t instruction;
 
-  UndefinedInstruction(gword_t instruction) : instruction(instruction) {
+  UndefinedInstruction(gword_t instruction) : Ins(instruction) {
     // assert(validate_instruction(UndefinedInstruction::DEFINITIONS, instruction));
   }
 };
@@ -754,7 +760,7 @@ struct MovImmToStatusReg : public Ins {
   RotateOperand rotation;
 
   MovImmToStatusReg(gword_t instruction)
-    : Ins(instruction), r(r = nibbles[5] & 0b0100), mask(mask = nibbles[4]), rotation(instruction) { }
+    : Ins(instruction), r(nibbles[5] & 0b0100), mask(nibbles[4]), rotation(instruction) { }
 };
 
 struct LoadStoreOffset : public Ins {
@@ -816,7 +822,7 @@ struct BranchWithLink : public Ins {
   bool l;
   gword_t offset;
 
-  BranchWithLink(gword_t instruction) : Ins(instruction), l(nibble[6] & 1), offset(instruction & 0xFFFFFF) { }
+  BranchWithLink(gword_t instruction) : Ins(instruction), l(nibbles[6] & 1), offset(instruction & 0xFFFFFF) { }
 };
 
 struct SoftwareInterrupt : public Ins {
@@ -1019,6 +1025,28 @@ struct Instruction {
     }, instruction);
   }
 };
+
+void initialize_definition_map() {
+  InstructionDefinition::DEFINITION_MAP = {
+    {"MulShort", vector({MulShort::definition})},
+    {"MulLong", vector({MulLong::definition})},
+    {"SingleDataSwap", vector({SingleDataSwap::definition})},
+    {"Load", vector(Load::definitions)},
+    {"DataProcessing", vector(DataProcessing::definitions)},
+    {"MovStatusToReg", vector({MovStatusToReg::definition})},
+    {"MovRegToStatus", vector({MovRegToStatus::definition})},
+    {"BranchExchange", vector({BranchExchange::definition})},
+    {"CondLeadingZeros", vector({CountLeadingZeros::definition})},
+    {"EnhancedDSPAdditive", vector({EnhancedDSPAdditive::definition})},
+    {"SWBreak", vector({SWBreak::definition})},
+    {"EnhancedDSPMultiplicative", vector({EnhancedDSPMultiplicative::definition})},
+    {"MovImmToStatusReg", vector({MovImmToStatusReg::definition})},
+    {"LoadStoreOffset", vector(LoadStoreOffset::definitions)},
+    {"LoadStoreMultiple", vector({LoadStoreMultiple::definition})},
+    {"BranchWithLink", vector({BranchWithLink::definition})},
+    {"SoftwareInterrupt", vector({SoftwareInterrupt::definition})}
+  };
+}
 
 }
 #endif

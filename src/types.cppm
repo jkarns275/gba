@@ -1,6 +1,7 @@
 #ifndef GBA_TYPES_HXX
 #define GBA_TYPES_HXX
 module;
+
 #include <stdint.h>
 
 export module types;

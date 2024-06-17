@@ -3,20 +3,18 @@
 
 module;
 #include <optional>
-using std::optional;
-
 #include <string>
-using std::string;
-
 #include <unordered_map>
-using std::unordered_map;
-
 #include <vector>
-using std::vector;
 
 export module arm7tdmi.instruction_definition;
 
 import types;
+
+using std::optional;
+using std::string;
+using std::unordered_map;
+using std::vector;
 
 export {
 
@@ -53,9 +51,10 @@ struct DecodedPiece {
   DecodedPiece(gword_t piece, gword_t length, string name) : piece(piece), length(length), name(std::move(name)) {}
 };
 
+constexpr gword_t INS_SIZE = 32;
+
 struct InsPiece {
   const gword_t nbits;
-  gword_t ins_size = 32;
 
   InsPiece(gword_t nbits) : nbits(nbits) {}
 
@@ -81,7 +80,7 @@ struct BoolPiece : public InsPiece {
   }
 
   bool advance(vector<DecodedPiece> &pieces, gword_t &instruction, gword_t &bits_consumed) override {
-    if (bits_consumed + 1 > ins_size)
+    if (bits_consumed + 1 > INS_SIZE)
       return false;
 
     gword_t bit = instruction & 1;
@@ -108,7 +107,7 @@ struct IntegralPiece : public InsPiece {
   IntegralPiece(int nbits, string &&name, gword_t iterator_min, gword_t iterator_max) : InsPiece(nbits), name(name), iterator_min(iterator_min), iterator_max(iterator_max) {}
 
   bool advance(vector<DecodedPiece> &pieces, gword_t &instruction, gword_t &bits_consumed) override {
-    if (bits_consumed + nbits > ins_size)
+    if (bits_consumed + nbits > INS_SIZE)
       return false;
 
     gword_t bits = instruction & ((1 << nbits) - 1);
@@ -142,12 +141,12 @@ struct ValuePiece : public InsPiece {
   ValuePiece(gword_t value, int nbits) : InsPiece(nbits), value(value) {}
   
   bool advance(vector<DecodedPiece> &pieces, gword_t &instruction, gword_t &bits_consumed) override {
-    if (bits_consumed + nbits > ins_size)
+    if (bits_consumed + nbits > INS_SIZE)
       return false;
 
     gword_t value = this->value;
     
-    for (int i = 0; i < nbits; i++) {
+    for (gword_t i = 0; i < nbits; i++) {
       gword_t bit = instruction & 1;
       gword_t target = value & 1;
 
@@ -198,7 +197,7 @@ struct CondPiece : public InsPiece {
   CondPiece() : InsPiece(4) {}
 
   bool advance(vector<DecodedPiece> &pieces, gword_t &instruction, gword_t &bits_consumed) override {
-    if (bits_consumed + 4 > ins_size)
+    if (bits_consumed + 4 > INS_SIZE)
       return false;
 
     gword_t bits = instruction & 0xF;
@@ -229,19 +228,16 @@ struct CondPiece : public InsPiece {
 struct InstructionDefinition {
   static inline unordered_map<string, vector<const InstructionDefinition *>> DEFINITION_MAP;
 
-  static void initialize_definition_map();
-
   vector<InsPiece *> pieces;
-  int ins_size = 32;
 
   InstructionDefinition(vector<InsPiece *> pieces) : pieces(std::move(pieces)) {
-    for (int i = 0; i < this->pieces.size(); i++){}
+    for (size_t i = 0; i < this->pieces.size(); i++){}
   }
 
   InstructionDefinition(const InstructionDefinition &other) : pieces(std::move(other.pieces)) {}
 
   ~InstructionDefinition() {
-    for (int i = 0; i < pieces.size(); i++)
+    for (size_t i = 0; i < pieces.size(); i++)
       delete pieces[i];
   }
 
@@ -251,12 +247,12 @@ struct InstructionDefinition {
 
     vector<DecodedPiece> decoded_pieces;
 
-    for (int i = pieces.size() - 1; i >= 0; i--)
+    for (size_t i = pieces.size() - 1; i >= 0; i--)
       if (!pieces[i]->advance(decoded_pieces, icopy, bits_consumed))
         return decoded_pieces;
     
     // Invalid definition probably
-    if (bits_consumed != ins_size)
+    if (bits_consumed != INS_SIZE)
       return decoded_pieces;
 
     return decoded_pieces;
@@ -265,7 +261,7 @@ struct InstructionDefinition {
   gword_t build(unordered_map<string, gword_t> &values) const {
     gword_t instruction = 0;
     
-    for (int i = 0; i < pieces.size(); i++) {
+    for (size_t i = 0; i < pieces.size(); i++) {
       pieces[i]->build(values, instruction);
     }
 
@@ -277,7 +273,7 @@ struct InstructionDefinition {
     const vector<InsPiece *> &pieces;
 
     iterator(const InstructionDefinition &def) : pieces(def.pieces) {
-      for (int i = 0; i < pieces.size(); i++) {
+      for (size_t i = 0; i < pieces.size(); i++) {
         iters.push_back(pieces[i]->iterator());
       }
     }
@@ -285,7 +281,7 @@ struct InstructionDefinition {
     optional<gword_t> get() {
       gword_t out = 0;
 
-      for (int i = 0; i < iters.size(); i++) {
+      for (size_t i = 0; i < iters.size(); i++) {
         optional<gword_t> bits = iters[i].get();
         if (!bits)
           return std::nullopt;
@@ -299,7 +295,7 @@ struct InstructionDefinition {
     }
 
     iterator &step() {
-      for (int i = pieces.size() - 1; i >= 0; i--) {
+      for (size_t i = pieces.size() - 1; i >= 0; i--) {
         iters[i].step();
         optional<gword_t> bits = iters[i].get();
 
@@ -331,28 +327,6 @@ bool validate_instruction(const vector<InstructionDefinition> &definitions, gwor
   }
 
   return false;
-}
-
-void InstructionDefinition::initialize_definition_map() {
-  InstructionDefinition::DEFINITION_MAP = {
-    {"MulShort", vector({MulShort::definition})},
-    {"MulLong", vector({MulLong::definition})},
-    {"SingleDataSwap", vector({SingleDataSwap::definition})},
-    {"Load", vector(Load::definitions)},
-    {"DataProcessing", vector(DataProcessing::definitions)},
-    {"MovStatusToReg", vector({MovStatusToReg::definition})},
-    {"MovRegToStatus", vector({MovRegToStatus::definition})},
-    {"BranchExchange", vector({BranchExchange::definition})},
-    {"CondLeadingZeros", vector({CountLeadingZeros::definition})},
-    {"EnhancedDSPAdditive", vector({EnhancedDSPAdditive::definition})},
-    {"SWBreak", vector({SWBreak::definition})},
-    {"EnhancedDSPMultiplicative", vector({EnhancedDSPMultiplicative::definition})},
-    {"MovImmToStatusReg", vector({MovImmToStatusReg::definition})},
-    {"LoadStoreOffset", vector(LoadStoreOffset::definitions)},
-    {"LoadStoreMultiple", vector({LoadStoreMultiple::definition})},
-    {"BranchWithLink", vector({BranchWithLink::definition})},
-    {"SoftwareInterrupt", vector({SoftwareInterrupt::definition})}
-  };
 }
 
 }

@@ -1,12 +1,13 @@
 #ifndef GBA_BITUTIL_HXX
 #define GBA_BITUTIL_HXX
 
-export module bitutil;
-import types;
-
+module;
 #include <concepts>
 #include <stddef.h>
 #include <stdint.h>
+
+export module bitutil;
+import types;
 
 export {
 
