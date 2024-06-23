@@ -30,6 +30,14 @@ enum Mode : byte {
   SYS = 0b11111,
 };
 
+bool mode_is_privileged(Mode mode) {
+  return mode != USR;
+}
+
+bool mode_has_spsr(Mode mode) {
+  return mode != USR && mode != SYS;
+}
+
 bool mode_is_valid(Mode mode) {
   switch (mode) {
     case USR:
@@ -45,14 +53,33 @@ bool mode_is_valid(Mode mode) {
   }
 }
 
-constexpr gword_t STATUS_NEGATIVE_MASK = 1 << 31;
-constexpr gword_t STATUS_ZERO_MASK = 1 << 30;
-constexpr gword_t STATUS_CARRY_MASK = 1 << 29;
-constexpr gword_t STATUS_OVERFLOW_MASK = 1 << 28;
+constexpr gword_t STATUS_NEGATIVE_MASK = flag_mask(31);
+constexpr gword_t STATUS_ZERO_MASK = flag_mask(30);
+constexpr gword_t STATUS_CARRY_MASK = flag_mask(29);
+constexpr gword_t STATUS_OVERFLOW_MASK = flag_mask(28);
 constexpr gword_t STATUS_IRQ_DISABLE_MASK = 1 << 7;
 constexpr gword_t STATUS_FIQ_DISABLE_MASK = 1 << 6;
 constexpr gword_t STATUS_STATE_MASK = 1 << 5;
 constexpr gword_t STATUS_MODE_MASK = (1 << 5) - 1;
+
+enum Cond : byte {
+  EQ = 0b0000,
+  NE = 0b0001,
+  CSHS = 0b0010,
+  CCLO = 0b0011,
+  MI = 0b0100,
+  PL = 0b0101,
+  VS = 0b0110,
+  VC = 0b0111,
+  HI = 0b1000,
+  LS = 0b1001,
+  GE = 0b1010,
+  LT = 0b1011,
+  GT = 0b1100,
+  LE = 0b1101,
+  AL = 0b1110,
+  NV = 0b1111,
+};
 
 class Exception {
   enum EKind {
@@ -87,19 +114,97 @@ class Exception {
   }
 };
 
+struct Memory {
+  void invalid_read(gword_t addr) {
+    throw addr;
+  }
+
+  Mode &mode;
+  Memory(Mode &mode) : mode(mode) {}
+
+  virtual glong_t &long_at(gword_t addr, Mode mode) = 0;
+  inline glong_t &long_at(gword_t addr) {
+    return long_at(addr, mode);
+  }
+
+  virtual signed_glong_t &signed_long_at(gword_t addr, Mode mode) = 0;
+  inline signed_glong_t &signed_long_at(gword_t addr) {
+    return signed_long_at(addr, mode);
+  }
+
+  virtual gword_t &at(gword_t addr, Mode mode) = 0;
+  inline gword_t &at(gword_t addr) {
+    return at(addr, mode);
+  }
+
+  virtual signed_gword_t &signed_at(gword_t addr, Mode mode) = 0;
+  inline signed_gword_t &signed_at(gword_t addr) {
+    return signed_at(addr, mode);
+  }
+
+  virtual gshort_t &short_at(gword_t addr, Mode mode) = 0;
+  inline gshort_t &short_at(gword_t addr) {
+    return short_at(addr, mode);
+  }
+
+  virtual signed_gshort_t &signed_short_at(gword_t addr, Mode mode) = 0;
+  inline signed_gshort_t &signed_short_at(gword_t addr) {
+    return signed_short_at(addr, mode);
+  }
+
+  virtual byte &byte_at(gword_t addr, Mode mode) = 0;
+  inline byte &byte_at(gword_t addr) {
+    return byte_at(addr, mode);
+  }
+  
+  virtual signed_byte &signed_byte_at(gword_t addr, Mode mode) = 0;
+  inline signed_byte &signed_byte_at(gword_t addr) {
+    return signed_byte_at(addr, mode);
+  }
+
+
+  gword_t rotated_at(gword_t addr, Mode mode) {
+    return ror<gword_t>(at(addr, mode), 8 * (addr & 0b11));
+  }
+  gword_t rotated_at(gword_t addr) {
+    return rotated_at(addr, mode);
+  }
+
+};
+
 struct CpuState {
-  static inline constexpr gword_t N_FLAG = flag_mask(31);
-  static inline constexpr gword_t Z_FLAG = flag_mask(30);
-  static inline constexpr gword_t C_FLAG = flag_mask(29);
-  static inline constexpr gword_t V_FLAG = flag_mask(28);
+  static constexpr gword_t N_FLAG = flag_mask(31);
+  static constexpr gword_t Z_FLAG = flag_mask(30);
+  static constexpr gword_t C_FLAG = flag_mask(29);
+  static constexpr gword_t V_FLAG = flag_mask(28);
+  static constexpr gword_t Q_FLAG = flag_mask(27);
+  static constexpr gword_t I_FLAG = flag_mask(7);
+  static constexpr gword_t F_FLAG = flag_mask(6);
+  static constexpr gword_t T_FLAG = flag_mask(5);
+  static constexpr gword_t MODE_MASK = 0x1F;
 
   static inline constexpr gword_t INDEX_PC = 15;
   static inline constexpr gword_t INDEX_LR = 14;
   static inline constexpr gword_t INDEX_SP = 13;
 
-  virtual gword_t &get_register(gword_t index) = 0;
+  virtual Mode get_mode() = 0;
+  virtual void set_mode(Mode mode) = 0;
+  
+  virtual gword_t &get_register(gword_t index, Mode mode) = 0;
+  gword_t &get_register(gword_t index) {
+    return get_register(index, get_mode());
+  }
+
   virtual gword_t &get_cpsr() = 0;
-  virtual gword_t &get_spsr() = 0;
+
+  virtual gword_t &get_spsr(Mode mode) = 0;
+  inline gword_t &get_spsr() {
+    return get_spsr(get_mode());
+  }
+
+  Memory &memory;
+
+  CpuState(Memory &memory) : memory(memory) { }
 
   gword_t get_flag(gword_t mask) {
     return bool(get_cpsr() & mask);
@@ -134,14 +239,37 @@ struct CpuState {
 
     return this->get_cpsr() == other.get_cpsr();
   }
+
+  bool evaluate_cond(Cond cond) {
+    gword_t cspr = get_cpsr();
+    bool  n = N_FLAG & cspr,
+          z = Z_FLAG & cspr,
+          c = C_FLAG & cspr,
+          v = V_FLAG & cspr;
+    switch (cond) {
+      case EQ: return z;
+      case NE: return !z;
+      case CSHS: return c;
+      case CCLO: return !c;
+      case MI: return n;
+      case PL: return !n;
+      case VS: return v;
+      case VC: return !v;
+      case HI: return c && !z;
+      case LS: return !c || z;
+      case GE: return n == v;
+      case LT: return n != v;
+      case GT: return !z && n == v;
+      case LE: return z && n != v;
+      case AL: return true;
+      // Supposed to be unpredictable
+      case NV: return false;
+    }
+  }
 };
 
-
-
 struct ArmCpuState : CpuState {
-
-  Mode mode = USR;
-
+ 
   gword_t reg[16] = {0};
   gword_t reg_bank_fiq[7] = {0};
   gword_t reg_bank_svc[2] = {0};
@@ -157,7 +285,9 @@ struct ArmCpuState : CpuState {
           spsr_irq = 0,
           spsr_und = 0;
   
-  gword_t &get_spsr() override {
+  ArmCpuState(Memory &memory) : CpuState(memory) { }
+  
+  gword_t &get_spsr(Mode mode) override {
     assert (mode != SYS);
     assert (mode != USR);
   
@@ -171,7 +301,7 @@ struct ArmCpuState : CpuState {
     }
   }
   
-  gword_t &get_register(gword_t index) override {
+  gword_t &get_register(gword_t index, Mode mode) override {
     assert (index < 16);
     assert (mode != IRQ);
   
@@ -214,6 +344,15 @@ struct ArmCpuState : CpuState {
   gword_t &get_cpsr() override {
     return cpsr;
   }
+
+  Mode get_mode() override {
+    return (Mode) (USR | (cpsr & MODE_MASK));
+  }
+
+  void set_mode(Mode mode) override {
+    cpsr &= ~MODE_MASK;
+    cpsr |= (gword_t) mode;
+  }
 };
 
 struct RegOverride {
@@ -232,9 +371,10 @@ struct CpuStateOverride : public CpuState {
   CpuState &state;
   vector<variant<RegOverride, CPSROverride>> overrides;
 
-  CpuStateOverride(CpuState &state, vector<variant<RegOverride, CPSROverride>> overrides) : state(state), overrides(move(overrides)) {}
+  CpuStateOverride(CpuState &state, vector<variant<RegOverride, CPSROverride>> overrides) : CpuState(state.memory), state(state), overrides(std::move(overrides)) {}
 
-  virtual gword_t &get_register(gword_t index) {
+  // TODO: Make this support specific CPU modes.
+  virtual gword_t &get_register(gword_t index, Mode mode) {
     for (auto &v : overrides) {
       if (std::holds_alternative<RegOverride>(v)) {
         RegOverride &ro = std::get<RegOverride>(v);
@@ -251,8 +391,8 @@ struct CpuStateOverride : public CpuState {
     return state.get_cpsr();
   }
 
-  virtual gword_t &get_spsr() override {
-    return state.get_spsr();
+  virtual gword_t &get_spsr(Mode mode) override {
+    return state.get_spsr(mode);
   }
 };
 

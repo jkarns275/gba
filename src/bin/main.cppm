@@ -15,10 +15,7 @@ export module main;
 
 import types;
 import bitutil;
-import arm7tdmi;
-import arm7tdmi.cpu_state;
-import arm7tdmi.instructions;
-import arm7tdmi.instruction_definition;
+import arm7tdmi.arm;
 
 using std::make_unique;
 

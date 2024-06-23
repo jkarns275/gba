@@ -48,7 +48,7 @@ struct Memory {
     throw addr;
   }
 
-  gword_t read(gword_t addr) {
+  gword_t &read(gword_t addr) {
     /**
      * Information for memory access timing emulation.
      *
@@ -123,9 +123,6 @@ struct Memory {
     }
   }
 
-  inline gword_t simple_mirrored_read(gword_t addr, byte *bytes, gword_t size) {
-    gword_t offset = 
-  }
 };
 
 #endif

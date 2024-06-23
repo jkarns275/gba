@@ -1,5 +1,5 @@
 file(GLOB SRCS *.cppm)
-file(GLOB ARM7TDMI_SRCS arm7tdmi/*.cppm)
+file(GLOB ARM7TDMI_SRCS arm7tdmi/*.cppm arm7tdmi/arm/*.cppm)
 file(GLOB GBA_SRCS gba/*.cppm)
 
 add_library(arm7tdmi_lib)

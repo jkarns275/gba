@@ -2,6 +2,7 @@
 #define GBA_BITUTIL_HXX
 
 module;
+#include <bit>
 #include <concepts>
 #include <stddef.h>
 #include <stdint.h>
@@ -10,6 +11,7 @@ export module bitutil;
 import types;
 
 export {
+  ;
 
 template<class T>
 concept Integral = std::is_integral<T>::value;
@@ -21,7 +23,7 @@ template<class T>
 concept UnsignedIntegral = Integral<T> && !SignedIntegral<T>;
 
 template <Integral itype>
-itype bitmask(itype i, uint32_t n) {
+constexpr itype bitmask(itype i, uint32_t n) noexcept {
   itype mask = (1 << n) - 1;
   return i && mask;
 }
@@ -31,48 +33,56 @@ struct Nibbles {
 
   Nibbles(gword_t word) : word(word) {}
 
-  inline byte operator[](size_t i) {
+  inline constexpr byte operator[](size_t i) const noexcept {
     return ((0b1111 << (4 * i)) & word) >> (4 * i);
   }
 };
 
 #define make_instruction_mask(x) (x << 25)
 
-inline constexpr gword_t flag_mask(gword_t i) {
+inline constexpr gword_t flag_mask(gword_t i) noexcept {
   return 1 << i;
 }
 
-inline constexpr gword_t get_flag(gword_t ins, gword_t i) {
+inline constexpr gword_t get_flag(gword_t ins, gword_t i) noexcept {
   return (ins & (1 << i)) >> i;
 }
 
-inline constexpr gword_t bitrange_mask(gword_t lo, gword_t hi) {
+inline constexpr gword_t bitrange_mask(gword_t lo, gword_t hi) noexcept {
   return ((1 << (hi + 1)) - 1) - (1 << (lo + 1));
 }
 
 template <UnsignedIntegral itype>
-constexpr inline itype ror(itype x, itype r) {
-  constexpr itype size = 8 * sizeof(itype);
-  
-  return (x >> r) | (x << (size - r));
+inline constexpr itype ror(itype x, int r) noexcept {
+  return std::rotr(x, r);
 }
 
 template <UnsignedIntegral itype>
-constexpr inline itype rol(itype x, itype r) {
-  constexpr itype size = 8 * sizeof(itype);
-  
-  return (x << r) | (x >> (size - r));
+inline constexpr itype rol(itype x, int r) noexcept {
+  return std::rotl(x, r);
 }
 
 template <UnsignedIntegral itype>
-constexpr inline itype lsr(itype x, itype by) {
+inline constexpr itype lsr(itype x, itype by) noexcept {
   return x >> by;
 }
 
 template <SignedIntegral itype>
-constexpr inline itype asr(itype x, itype by) {
+inline constexpr itype asr(itype x, itype by) noexcept {
   return x >> by;
 }
+
+template <Integral itype>
+inline constexpr int count_ones(itype x) noexcept {
+  return std::popcount(x);
+}
+
+template <Integral itype>
+inline constexpr itype count_leading_zeros(itype x) noexcept {
+  return std::countl_zero(x);
+}
+
+constexpr gword_t GWORD_T_SIGN_BIT = flag_mask(31);
 
 }
 
