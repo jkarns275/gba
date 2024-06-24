@@ -3,6 +3,7 @@ export module arm7tdmi.arm.branch;
 import arm7tdmi.instruction;
 
 export {
+  ;
 
 struct BranchExchange : public Ins {
   static inline const InstructionDefinition *definition = new InstructionDefinition({
