@@ -1,3 +1,5 @@
+module;
+#include <iostream>
 export module arm7tdmi.arm.branch;
 
 import arm7tdmi.instruction;
@@ -7,7 +9,7 @@ export {
 
 struct BranchExchange : public Ins {
   static inline const InstructionDefinition *definition = new InstructionDefinition({
-    new CondPiece(), new ValuePiece(0b00010010, 8), new Ones(12), new ValuePiece(0b0001, 4), new RegPiece("Rm")
+    new CondPiece(), new ValuePiece(0b00010010, 8), new Ones(12), new Zeros(2), new BoolPiece("lr"), new Ones(1), new RegPiece("Rm")
   });
 
   static constexpr gword_t MASK_LR = flag_mask(5);
@@ -16,12 +18,12 @@ struct BranchExchange : public Ins {
   bool set_lr;
   gword_t irm;
 
-  BranchExchange(gword_t instruction) : Ins(instruction), set_lr(instruction & MASK_LR), irm(nibbles[0]) { }
+  BranchExchange(gword_t instruction) : Ins(instruction), set_lr(instruction & MASK_LR), irm(nibbles[0]) {}
 
   void execute(CpuState &state) override {
     if (set_lr)
       state.get_lr() = state.get_pc() + 4;
-   
+    
     gword_t rm = state.get_register(irm);
     
     if (rm & MASK_T)

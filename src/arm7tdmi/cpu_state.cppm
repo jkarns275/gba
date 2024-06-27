@@ -19,6 +19,7 @@ using std::variant;
 using std::vector;
 
 export {
+  ;
 
 enum Mode : byte {
   USR = 0b10000,
@@ -115,61 +116,43 @@ class Exception {
 };
 
 struct Memory {
+
   void invalid_read(gword_t addr) {
     throw addr;
   }
 
-  Mode &mode;
-  Memory(Mode &mode) : mode(mode) {}
-
   virtual glong_t &long_at(gword_t addr, Mode mode) = 0;
-  inline glong_t &long_at(gword_t addr) {
-    return long_at(addr, mode);
-  }
-
   virtual signed_glong_t &signed_long_at(gword_t addr, Mode mode) = 0;
-  inline signed_glong_t &signed_long_at(gword_t addr) {
-    return signed_long_at(addr, mode);
-  }
 
   virtual gword_t &at(gword_t addr, Mode mode) = 0;
-  inline gword_t &at(gword_t addr) {
-    return at(addr, mode);
-  }
-
   virtual signed_gword_t &signed_at(gword_t addr, Mode mode) = 0;
-  inline signed_gword_t &signed_at(gword_t addr) {
-    return signed_at(addr, mode);
-  }
-
-  virtual gshort_t &short_at(gword_t addr, Mode mode) = 0;
-  inline gshort_t &short_at(gword_t addr) {
-    return short_at(addr, mode);
-  }
-
-  virtual signed_gshort_t &signed_short_at(gword_t addr, Mode mode) = 0;
-  inline signed_gshort_t &signed_short_at(gword_t addr) {
-    return signed_short_at(addr, mode);
-  }
-
-  virtual byte &byte_at(gword_t addr, Mode mode) = 0;
-  inline byte &byte_at(gword_t addr) {
-    return byte_at(addr, mode);
-  }
   
+  virtual gshort_t &short_at(gword_t addr, Mode mode) = 0;
+  virtual signed_gshort_t &signed_short_at(gword_t addr, Mode mode) = 0;
+  
+  virtual byte &byte_at(gword_t addr, Mode mode) = 0;
   virtual signed_byte &signed_byte_at(gword_t addr, Mode mode) = 0;
-  inline signed_byte &signed_byte_at(gword_t addr) {
-    return signed_byte_at(addr, mode);
-  }
-
 
   gword_t rotated_at(gword_t addr, Mode mode) {
     return ror<gword_t>(at(addr, mode), 8 * (addr & 0b11));
   }
-  gword_t rotated_at(gword_t addr) {
-    return rotated_at(addr, mode);
-  }
 
+};
+
+struct SimpleMemory : public Memory {
+  byte data[0x3000];
+
+  glong_t &long_at(gword_t addr, Mode mode) override { return ((glong_t *) data)[addr / 8]; }
+  signed_glong_t &signed_long_at(gword_t addr, Mode mode) override { return ((signed_glong_t *) data)[addr / 8]; }
+
+  gword_t &at(gword_t addr, Mode mode) override { return ((gword_t *) data)[addr / 4]; }
+  signed_gword_t &signed_at(gword_t addr, Mode mode) override { return ((signed_gword_t *) data)[addr / 4]; }
+  
+  gshort_t &short_at(gword_t addr, Mode mode) override { return ((gshort_t *) data)[addr / 2]; }
+  signed_gshort_t &signed_short_at(gword_t addr, Mode mode) override { return ((signed_gshort_t *) data)[addr / 2]; }
+  
+  byte &byte_at(gword_t addr, Mode mode) override { return data[addr]; }
+  signed_byte &signed_byte_at(gword_t addr, Mode mode) override { return ((signed_byte *) data)[addr]; }
 };
 
 struct CpuState {
@@ -181,6 +164,9 @@ struct CpuState {
   static constexpr gword_t I_FLAG = flag_mask(7);
   static constexpr gword_t F_FLAG = flag_mask(6);
   static constexpr gword_t T_FLAG = flag_mask(5);
+
+  static constexpr gword_t ALL_FLAGS = N_FLAG | Z_FLAG | C_FLAG | V_FLAG | Q_FLAG | I_FLAG | F_FLAG | T_FLAG;
+
   static constexpr gword_t MODE_MASK = 0x1F;
 
   static inline constexpr gword_t INDEX_PC = 15;
@@ -210,6 +196,14 @@ struct CpuState {
     return bool(get_cpsr() & mask);
   }
 
+  void set_flag(gword_t mask) {
+    get_cpsr() |= mask;
+  }
+
+  void clear_flag(gword_t mask) {
+    get_cpsr() &= ~mask;
+  }
+
   gword_t &get_sp() {
     return get_register(INDEX_SP);
   }
@@ -230,6 +224,7 @@ struct CpuState {
       std::cout <<  std::format("r{:<2} : 0x{:<8x}", i, value) << "  ";
     }
     std::cout << "\n";
+    std::cout << std::format("cpsr: 0x{:<8x}\n", get_cpsr());
   }
 
   bool registers_equal(CpuState &other)  {
@@ -266,9 +261,45 @@ struct CpuState {
       case NV: return false;
     }
   }
+
+  inline glong_t &long_at(gword_t addr) {
+    return memory.long_at(addr, get_mode());
+  }
+
+  inline signed_glong_t &signed_long_at(gword_t addr) {
+    return memory.signed_long_at(addr, get_mode());
+  }
+
+  inline gword_t &at(gword_t addr) {
+    return memory.at(addr, get_mode());
+  }
+
+  inline signed_gword_t &signed_at(gword_t addr) {
+    return memory.signed_at(addr, get_mode());
+  }
+
+  inline gshort_t &short_at(gword_t addr) {
+    return memory.short_at(addr, get_mode());
+  }
+
+  inline signed_gshort_t &signed_short_at(gword_t addr) {
+    return memory.signed_short_at(addr, get_mode());
+  }
+
+  inline byte &byte_at(gword_t addr) {
+    return memory.byte_at(addr, get_mode());
+  }
+  
+  inline signed_byte &signed_byte_at(gword_t addr) {
+    return memory.signed_byte_at(addr, get_mode());
+  }
+
+  gword_t rotated_at(gword_t addr) {
+    return memory.rotated_at(addr, get_mode());
+  }
 };
 
-struct ArmCpuState : CpuState {
+struct ArmCpuState : public CpuState {
  
   gword_t reg[16] = {0};
   gword_t reg_bank_fiq[7] = {0};
@@ -297,7 +328,8 @@ struct ArmCpuState : CpuState {
       case ABT: return spsr_abt;
       case IRQ: return spsr_irq;
       case UND: return spsr_und;
-      default: __builtin_unreachable();
+      // this is specified as unpredictable;
+      default: return cpsr;
     }
   }
   
@@ -374,7 +406,7 @@ struct CpuStateOverride : public CpuState {
   CpuStateOverride(CpuState &state, vector<variant<RegOverride, CPSROverride>> overrides) : CpuState(state.memory), state(state), overrides(std::move(overrides)) {}
 
   // TODO: Make this support specific CPU modes.
-  virtual gword_t &get_register(gword_t index, Mode mode) {
+  gword_t &get_register(gword_t index, Mode mode) override {
     for (auto &v : overrides) {
       if (std::holds_alternative<RegOverride>(v)) {
         RegOverride &ro = std::get<RegOverride>(v);

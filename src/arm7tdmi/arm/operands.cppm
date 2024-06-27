@@ -1,3 +1,6 @@
+module;
+#include <iostream>
+
 export module arm7tdmi.arm.operands;
 
 import arm7tdmi.instruction;
@@ -22,7 +25,9 @@ struct ShifterOperand {
 };
 
 struct RotateOperand : public ShifterOperand {
-  byte imm, rotate;
+  byte rotate, imm;
+
+  RotateOperand(byte rotate, byte imm) : rotate(rotate & 0xF), imm(imm & 0xFF) { }
 
   RotateOperand(gword_t instruction) {
     Nibbles nibbles(instruction);
@@ -35,8 +40,7 @@ struct RotateOperand : public ShifterOperand {
     constexpr gword_t MASK = flag_mask(31);
 
     gword_t shifter = ror<gword_t>(imm, rotate * 2);
-    gword_t carry = rotate ? shifter & MASK : state.get_flag(CpuState::C_FLAG);
-    
+    gword_t carry = rotate ? bool(shifter & MASK): state.get_flag(CpuState::C_FLAG);
     return { shifter, carry };
   }
 };
@@ -44,11 +48,16 @@ struct RotateOperand : public ShifterOperand {
 struct ImmShiftOperand : public ShifterOperand {
   byte shift_by, irm;
   BitShift shift_type;
+  
+  ImmShiftOperand(byte shift_by, byte irm, BitShift shift_type)
+    : shift_by(shift_by & 0x1F),
+      irm(irm),
+      shift_type(shift_type) { }
 
   ImmShiftOperand(gword_t instruction) {
     Nibbles nibbles(instruction);
 
-    shift_by = (byte) ((instruction & 0xF80) >> 6);
+    shift_by = (byte) ((instruction & 0xF80) >> 7);
     irm = nibbles[0];
     shift_type = (BitShift) ((nibbles[1] & 0b0110) >> 1);
   }
@@ -119,6 +128,11 @@ struct ImmShiftOperand : public ShifterOperand {
 struct RegShiftOperand : public ShifterOperand {
   byte irs, irm;
   BitShift shift_type;
+
+  RegShiftOperand(byte irs, byte irm, BitShift shift_type) 
+    : irs(irs),
+      irm(irm),
+      shift_type(shift_type) {}
 
   RegShiftOperand(gword_t instruction) {
     Nibbles nibbles(instruction);

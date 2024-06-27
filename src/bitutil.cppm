@@ -77,7 +77,7 @@ inline constexpr int count_ones(itype x) noexcept {
   return std::popcount(x);
 }
 
-template <Integral itype>
+template <UnsignedIntegral itype>
 inline constexpr itype count_leading_zeros(itype x) noexcept {
   return std::countl_zero(x);
 }

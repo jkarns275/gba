@@ -28,12 +28,12 @@ struct SingleDataSwap : public Ins {
             rn = state.get_register(irn),
             rm = state.get_register(irm);
     if (b) {
-      byte temp = state.memory.byte_at(rn);
-      state.memory.byte_at(rn) = rm;
+      byte temp = state.byte_at(rn);
+      state.byte_at(rn) = rm;
       rd = temp;
     } else {
-      gword_t temp = state.memory.rotated_at(rn);
-      state.memory.at(rn) = rm;
+      gword_t temp = state.rotated_at(rn);
+      state.at(rn) = rm;
       rd = temp;
     }
   }

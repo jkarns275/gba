@@ -14,6 +14,7 @@ export import arm7tdmi.arm.clz;
 export import arm7tdmi.arm.data_processing;
 export import arm7tdmi.arm.mov;
 export import arm7tdmi.arm.mul;
+export import arm7tdmi.arm.operands;
 export import arm7tdmi.arm.swap;
 export import arm7tdmi.arm.swi;
 

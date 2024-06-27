@@ -6,6 +6,7 @@ module;
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <iostream>
 
 export module arm7tdmi.instruction_definition;
 
@@ -17,6 +18,7 @@ using std::unordered_map;
 using std::vector;
 
 export {
+  ;
 
 struct biterator {
   gword_t min;
@@ -60,6 +62,9 @@ struct InsPiece {
 
   virtual void build(unordered_map<string, gword_t> &values, gword_t &instruction) const = 0;
   virtual bool advance(vector<DecodedPiece> &pieces, gword_t &instruction, gword_t &bits_consumed) = 0;
+  virtual optional<string> get_name() const {
+    return std::nullopt;
+  }
 
   virtual biterator iterator() {
     return biterator(2);
@@ -68,10 +73,19 @@ struct InsPiece {
   virtual ~InsPiece() {}
 };
 
-struct BoolPiece : public InsPiece {
-  string name; 
+struct NamedInsPiece : public InsPiece {
+  const string name;
 
-  BoolPiece(string &&name) : InsPiece(1), name(name) {}
+  NamedInsPiece(gword_t nbits, string &&name) : InsPiece(nbits), name(name) { }
+
+  optional<string> get_name() const override {
+    return name;
+  }
+};
+
+struct BoolPiece : public NamedInsPiece {
+
+  BoolPiece(string &&name) : NamedInsPiece(1, std::move(name)) { }
   
   void build(unordered_map<string, gword_t> &values, gword_t &instruction) const override {
     bool v = bool(values.at(name));
@@ -91,6 +105,10 @@ struct BoolPiece : public InsPiece {
 
     return true;
   }
+
+  optional<string> get_name() const override {
+    return name;
+  }
   
   biterator iterator() override {
     return biterator(0, 2);
@@ -98,13 +116,12 @@ struct BoolPiece : public InsPiece {
 
 };
 
-struct IntegralPiece : public InsPiece {
-  string name;
+struct IntegralPiece : public NamedInsPiece {
   gword_t iterator_min, iterator_max;
   
-  IntegralPiece(int nbits, string &&name) : InsPiece(nbits), name(name), iterator_max(1 << nbits) {}
-  IntegralPiece(int nbits, string &&name, gword_t iterator_max) : InsPiece(nbits), name(name), iterator_min(0), iterator_max(iterator_max) {}
-  IntegralPiece(int nbits, string &&name, gword_t iterator_min, gword_t iterator_max) : InsPiece(nbits), name(name), iterator_min(iterator_min), iterator_max(iterator_max) {}
+  IntegralPiece(int nbits, string &&name) : NamedInsPiece(nbits, std::move(name)), iterator_max(1 << nbits) {}
+  IntegralPiece(int nbits, string &&name, gword_t iterator_max) : NamedInsPiece(nbits, std::move(name)), iterator_min(0), iterator_max(iterator_max) {}
+  IntegralPiece(int nbits, string &&name, gword_t iterator_min, gword_t iterator_max) : NamedInsPiece(nbits, std::move(name)), iterator_min(iterator_min), iterator_max(iterator_max) {}
 
   bool advance(vector<DecodedPiece> &pieces, gword_t &instruction, gword_t &bits_consumed) override {
     if (bits_consumed + nbits > INS_SIZE)
@@ -123,7 +140,7 @@ struct IntegralPiece : public InsPiece {
   void build(unordered_map<string, gword_t> &values, gword_t &instruction) const override {
     gword_t v = values.at(name);
     instruction <<= nbits;
-    instruction |= v;
+    instruction |= v & ((1 << nbits) - 1);
   }
   
   biterator iterator() override {
@@ -132,7 +149,7 @@ struct IntegralPiece : public InsPiece {
 };
 
 struct RegPiece : public IntegralPiece {
-  RegPiece(string &&_name) : IntegralPiece(4, std::move(_name)) {}
+  RegPiece(string &&name) : IntegralPiece(4, std::move(name)) {}
 };
 
 struct ValuePiece : public InsPiece {
@@ -216,9 +233,13 @@ struct CondPiece : public InsPiece {
     auto f = values.find("cond");
     gword_t v = f == values.end() ? 0 : f->second;
     instruction <<= nbits;
-    instruction |= v;
+    instruction |= v & 0xF;
   } 
   
+  optional<string> get_name() const override {
+    return "cond";
+  }
+
   biterator iterator() override {
     // return biterator(0, 1 << nbits);
     return biterator(0, 1);
@@ -247,9 +268,10 @@ struct InstructionDefinition {
 
     vector<DecodedPiece> decoded_pieces;
 
-    for (size_t i = pieces.size() - 1; i >= 0; i--)
+    for (int i = pieces.size() - 1; i >= 0; i--) {
       if (!pieces[i]->advance(decoded_pieces, icopy, bits_consumed))
         return decoded_pieces;
+    }
     
     // Invalid definition probably
     if (bits_consumed != INS_SIZE)
@@ -266,6 +288,19 @@ struct InstructionDefinition {
     }
 
     return instruction;
+  }
+
+  unordered_map<string, gword_t> generate_value_map() const {
+    unordered_map<string, gword_t> map;
+
+    for (size_t i = 0; i < pieces.size(); i++) {
+      optional<string> name = pieces[i]->get_name();
+      if (name) {
+        map.insert({std::move(*name), *pieces[i]->iterator().get()});
+      }
+    }
+
+    return map;
   }
 
   struct iterator {

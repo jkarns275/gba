@@ -165,29 +165,29 @@ struct Load : public Ins {
 
     switch (switch_pair(integral_type, s)) {
       case switch_pair(BYTE, true): {
-        signed_gword_t word = state.memory.signed_byte_at(address);
+        signed_gword_t word = state.signed_byte_at(address);
         rd = word;
         break;
       }
       
       case switch_pair(SHORT, false): {
-        gword_t word = state.memory.short_at(address);
+        gword_t word = state.short_at(address);
         rd = word;
         break;
       }
 
       case switch_pair(SHORT, true): {
-        signed_gword_t word = state.memory.signed_short_at(address);
+        signed_gword_t word = state.signed_short_at(address);
         rd = word;
         break;
       }
 
       case switch_pair(WORD, false):
-        rd = state.memory.at(address);
+        rd = state.at(address);
         break;
 
       case switch_pair(WORD, true):
-        rd = (signed_gword_t) state.memory.signed_at(address);
+        rd = (signed_gword_t) state.signed_at(address);
         break;
 
       // Not implemented since these isntructions dont exist in arm7tdmi
@@ -207,7 +207,7 @@ struct Load : public Ins {
       case switch_pair(SHORT, false):
       // Signed store is the same - but I don't know that this is actually a legal instruction.
       case switch_pair(SHORT, true): {
-        gshort_t &data = state.memory.short_at(address);
+        gshort_t &data = state.short_at(address);
         data = rd;
         break;
       }
@@ -422,10 +422,10 @@ struct LoadStoreOffset : public Ins {
     } else {
       switch (data_type) {
         case BYTE:
-          state.memory.byte_at(addr) = rd;
+          state.byte_at(addr) = rd;
           break;
         case WORD:
-          state.memory.at(addr) = rd;
+          state.at(addr) = rd;
           break;
       }
     }
@@ -483,6 +483,8 @@ struct LoadStoreMultiple : public Ins {
           rn = start + register_width;
         return start;
     }
+
+    __builtin_unreachable();
   }
 
   void execute(CpuState &state) override {
@@ -493,13 +495,13 @@ struct LoadStoreMultiple : public Ins {
 
       for (int i = 0; i < 15; i++) {
         if ((1 << i) & register_list) {
-          state.get_register(i, mode) = state.memory.at(address);
+          state.get_register(i, mode) = state.at(address);
           address += 4;
         }
       }
 
       if (MASK_PC & register_list) {
-        state.get_pc() = state.memory.at(address) & MASK_PC_ASSIGNMENT;
+        state.get_pc() = state.at(address) & MASK_PC_ASSIGNMENT;
         address += 4;
         
         if (s)
@@ -511,7 +513,7 @@ struct LoadStoreMultiple : public Ins {
 
       for (int i = 0; i < 16; i++) {
         if ((1 << i) & register_list) {
-          state.memory.at(address) = state.get_register(i, mode);
+          state.at(address) = state.get_register(i, mode);
           address += 4;
         }
       }

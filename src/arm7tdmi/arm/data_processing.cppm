@@ -1,6 +1,7 @@
 module;
 #include <variant>
 #include <vector>
+#include <iostream>
 
 export module arm7tdmi.arm.data_processing;
 
@@ -110,7 +111,7 @@ struct DataProcessing : public Ins {
     );
 
     gword_t op = operand.value;
-    gword_t carry = operand.carry;
+    gword_t carry = cpu_state.get_flag(CpuState::C_FLAG);
 
     gword_t &rd = cpu_state.get_register(ird);
     gword_t rn = cpu_state.get_register(irn);
@@ -187,7 +188,7 @@ struct DataProcessing : public Ins {
       
       case RSC: {
         CheckedResult r0 = CheckedResult::sub(op, rn);
-        CheckedResult r1 = CheckedResult::sub(r0.value, carry ^ 1);
+        CheckedResult r1 = CheckedResult::sub(r0.value, carry == 0);
         rd = r1.value;
         test = rd;
         carry = !(r1.carry | r0.carry);
@@ -227,6 +228,7 @@ struct DataProcessing : public Ins {
       case TEQ:
         test = rn ^ op;
         cond_code_mask |= C_FLAG;
+        carry = operand.carry;
         goto set_flags;
       
       case CMP: {
@@ -259,7 +261,7 @@ struct DataProcessing : public Ins {
           | (test & GWORD_T_SIGN_BIT ? N_FLAG : 0)
           | (overflow ? V_FLAG : 0)
           | (carry ? C_FLAG : 0);
-        cpsr &= mask & cond_code_mask;
+        cpsr |= mask & cond_code_mask;
       }
     }
   }
