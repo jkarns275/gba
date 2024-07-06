@@ -1,6 +1,9 @@
 module;
+#include <utility>
 #include <variant>
 #include <vector>
+#include <iostream>
+#include <assert.h>
 
 export module arm7tdmi.arm.mov;
 
@@ -14,36 +17,15 @@ export {
   ;
 
 // TODO: Merge `Load` and `LoadStoreOffset` probably.
-struct Load : public Ins {
+struct LoadStore : public Ins {
   static inline const vector<const InstructionDefinition *> definitions = {
     new InstructionDefinition({
-      new CondPiece(), new ValuePiece(0, 3), new BoolPiece("P"), new BoolPiece("U"), new Zeros(1), new BoolPiece("W"), new BoolPiece("L"),
-      new IntegralPiece(4, "Rn"), new IntegralPiece(4, "Rd"), new Zeros(4), new ValuePiece(0b1011, 4), new IntegralPiece(4, "Rm")
+      new CondPiece(), new ValuePiece(0, 3), new BoolPiece("P"), new BoolPiece("U"), new BoolPiece("I"), new BoolPiece("W"), new BoolPiece("L"),
+      new RegPiece("Rn"), new RegPiece("Rd"), new Zeros(4), new Ones(1), new BoolPiece("S"), new BoolPiece("H"), new Ones(1), new RegPiece("Rm")
     }),
     new InstructionDefinition({
-      new CondPiece(), new ValuePiece(0, 3), new BoolPiece("P"), new BoolPiece("U"), new Ones(1), new BoolPiece("W"), new BoolPiece("L"),
-      new IntegralPiece(4, "Rn"), new IntegralPiece(4, "Rd"), new IntegralPiece(4, "HiOffset"), 
-      new ValuePiece(0b1011, 4), new IntegralPiece(4, "LoOffset")
-    }),
-    new InstructionDefinition({
-      new CondPiece(), new ValuePiece(0, 3), new BoolPiece("P"), new BoolPiece("U"), new BoolPiece("B"), new BoolPiece("W"), new Zeros(1),
-      new IntegralPiece(4, "Rn"), new IntegralPiece(4, "Rd"), new Zeros(4), new Ones(2), new BoolPiece("S"), new Ones(1),
-      new IntegralPiece(4, "Rm")
-    }),
-    new InstructionDefinition({
-      new CondPiece(), new ValuePiece(0, 3), new BoolPiece("P"), new BoolPiece("U"), new Zeros(1), new BoolPiece("W"), new Ones(1),
-      new IntegralPiece(4, "Rn"), new IntegralPiece(4, "Rd"), new Zeros(4), new Ones(2), new BoolPiece("H"), new Ones(1),
-      new IntegralPiece(4, "Rm")
-    }),
-    new InstructionDefinition({
-      new CondPiece(), new ValuePiece(0, 3), new BoolPiece("P"), new BoolPiece("U"), new Ones(1), new BoolPiece("W"), new Zeros(1),
-      new IntegralPiece(4, "Rn"), new IntegralPiece(4, "Rd"), new IntegralPiece(4, "HiOffset"), new Ones(2), new BoolPiece("S"), new Ones(1),
-      new IntegralPiece(4, "LoOffset")
-    }),
-    new InstructionDefinition({
-      new CondPiece(), new ValuePiece(0, 3), new BoolPiece("P"), new BoolPiece("U"), new Ones(1), new BoolPiece("W"), new Ones(1),
-      new IntegralPiece(4, "Rn"), new IntegralPiece(4, "Rd"), new IntegralPiece(4, "HiOffset"), new Ones(2), new BoolPiece("S"), new Ones(1),
-      new IntegralPiece(4, "LoOffset")
+      new CondPiece(), new ValuePiece(0, 3), new BoolPiece("P"), new BoolPiece("U"), new BoolPiece("I"), new BoolPiece("W"), new BoolPiece("L"),
+      new RegPiece("Rn"), new RegPiece("Rd"), new RegPiece("immed_hi"), new Ones(1), new BoolPiece("S"), new BoolPiece("H"), new Ones(1), new RegPiece("immed_lo")
     }),
   };
 
@@ -78,7 +60,7 @@ struct Load : public Ins {
   
   byte operand;
 
-  Load(gword_t instruction) 
+  LoadStore(gword_t instruction) 
     : Ins(instruction),
       p(MASK_P & instruction),
       u(MASK_U & instruction),
@@ -104,21 +86,13 @@ struct Load : public Ins {
         break;
     }
 
-    switch (nibbles[1]) {
-      case 0b1011:
-        integral_type = SHORT;
-        break;
-      case 0b1111:
-      case 0b1101:
-        if (l) {
-          integral_type = SHORT;
-        } else {
-          integral_type = LONG;
-        }
-        break;
-      default:
-        break;
+    if (instruction & MASK_H) {
+      integral_type = SHORT;
+    } else {
+      integral_type = BYTE;
     }
+
+    assert(!(integral_type == BYTE && !s));
   }
 
   static constexpr gword_t switch_pair(OffsetType offset_type, gword_t p) {
@@ -197,6 +171,7 @@ struct Load : public Ins {
       case switch_pair(BYTE, false):
         __builtin_unreachable();
     }
+
   }
 
   void store(CpuState &state) {
@@ -204,16 +179,14 @@ struct Load : public Ins {
     gword_t address = get_address(state);
 
     switch (switch_pair(integral_type, s)) {
-      case switch_pair(SHORT, false):
-      // Signed store is the same - but I don't know that this is actually a legal instruction.
-      case switch_pair(SHORT, true): {
+      case switch_pair(SHORT, false): {
         gshort_t &data = state.short_at(address);
         data = rd;
         break;
       }
-
-      // These are implemented in other instructions, for some reason.
+      // Storing a word / byte / signed short are all covered in other instructions.
       case switch_pair(WORD, false):
+      case switch_pair(SHORT, true):
       case switch_pair(WORD, true):
       case switch_pair(LONG, false):
       case switch_pair(LONG, true):
@@ -358,8 +331,8 @@ struct LoadStoreOffset : public Ins {
       add_offset(instruction & MASK_U),
       load(instruction & MASK_L),
       w(instruction & MASK_W),
-      irn(nibbles[3]),
-      ird(nibbles[4]),
+      irn(nibbles[4]),
+      ird(nibbles[3]),
       data_type(instruction & MASK_B ? BYTE : WORD) {
     if (register_offset) {
       operand = ImmShiftOperand(instruction);
@@ -374,13 +347,13 @@ struct LoadStoreOffset : public Ins {
 
   gword_t get_address(CpuState &state) {
     gword_t &rn = state.get_register(irn);
-    gword_t sign = add_offset ? 1 : -1;
+    signed_gword_t sign = add_offset ? 1 : -1;
     gword_t addr = rn;
 
     if (irn == 15)
       addr += 8;   
     
-    gword_t offset = register_offset ? std::get<ImmShiftOperand>(operand).evaluate(state).value : std::get<gword_t>(operand);
+    signed_gword_t offset = register_offset ? std::get<ImmShiftOperand>(operand).evaluate(state).value : std::get<gword_t>(operand);
     
     switch (switch_pair(pre_indexed_or_offset, w)) {
       case switch_pair(false, false):
@@ -404,7 +377,7 @@ struct LoadStoreOffset : public Ins {
   void execute(CpuState &state) override {
     gword_t addr = get_address(state);
     gword_t &rd = state.get_register(ird);
-
+    
     if (load) {
       Mode mode = Mode::USR;
 
@@ -425,10 +398,11 @@ struct LoadStoreOffset : public Ins {
           state.byte_at(addr) = rd;
           break;
         case WORD:
-          state.at(addr) = rd;
+          state.at(addr & ~(0b11)) = rd;
           break;
       }
     }
+    
   }
 };
 
@@ -439,7 +413,7 @@ struct LoadStoreMultiple : public Ins {
   });
 
   static constexpr gword_t MASK_PC = flag_mask(15);
-  static constexpr gword_t MASK_PC_ASSIGNMENT = 0xFFFFFFFC;
+  static constexpr gword_t MASK_PC_ASSIGNMENT = 0xFFFFFFFE;
   static constexpr gword_t MASK_P = flag_mask(24);
   static constexpr gword_t MASK_U = flag_mask(23);
   static constexpr gword_t MASK_S = flag_mask(22);
@@ -460,38 +434,23 @@ struct LoadStoreMultiple : public Ins {
       irn(nibbles[4]),
       register_list(instruction & 0xFFFF) { }
 
-  static constexpr gword_t switch_pair(bool p, bool w) {
-    return (p ? 1 : 0) | (w ? 2 : 0);
-  }
-
-  gword_t get_start_end_address(CpuState &state) {
-    gword_t &rn = state.get_register(irn);
+  inline std::pair<gword_t, gword_t> get_address(CpuState &state) {
+    gword_t rn = state.get_register(irn);
     gword_t register_width = count_ones(register_list) * 4;
     gword_t start = rn;
 
-    switch (switch_pair(p, u)) {
-      case switch_pair(false, false):
-        start += 4;
-      case switch_pair(true,  false):
-        if (w)
-          rn = rn - register_width;
-        return start - register_width;
-      case switch_pair(true, true):
-        start += 4;
-      case switch_pair(false, true):
-        if (w)
-          rn = start + register_width;
-        return start;
-    }
+    start += (p == u) << 2;
+    start -= u ? 0 : register_width;
+    rn += u ? register_width : -register_width;
 
-    __builtin_unreachable();
+    return {start, rn};
   }
 
   void execute(CpuState &state) override {
-    gword_t address = get_start_end_address(state);
+    auto [address, rn_new] = get_address(state);
 
     if (l) {
-      Mode mode = s && !(MASK_PC & register_list) ? Mode::USR : state.get_mode();
+      Mode mode = s && !(register_list & MASK_PC) ? Mode::USR : state.get_mode();
 
       for (int i = 0; i < 15; i++) {
         if ((1 << i) & register_list) {
@@ -500,12 +459,12 @@ struct LoadStoreMultiple : public Ins {
         }
       }
 
-      if (MASK_PC & register_list) {
-        state.get_pc() = state.at(address) & MASK_PC_ASSIGNMENT;
-        address += 4;
-        
+      if (register_list & MASK_PC) {
         if (s)
           state.get_cpsr() = state.get_spsr();
+
+        state.get_pc() = state.at(address) & MASK_PC_ASSIGNMENT;
+        address += 4;
       }
 
     } else {
@@ -518,6 +477,8 @@ struct LoadStoreMultiple : public Ins {
         }
       }
     }
+    
+    state.get_register(irn) = rn_new;
   }
 };
 

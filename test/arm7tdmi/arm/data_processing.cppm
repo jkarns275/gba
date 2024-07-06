@@ -12,6 +12,8 @@ export module test.arm7tdmi.arm.data_processing;
 import arm7tdmi.arm;
 import arm7tdmi.instruction;
 
+import test.arm7tdmi.test_utils;
+
 using std::string;
 using std::vector;
 using std::unordered_map;
@@ -28,24 +30,21 @@ struct DataProcessingTest;
 
 template <byte Opcode>
 struct Mock {
-  byte get_opcode() {
-    return Opcode;
-  }
   gword_t expected_value(DataProcessingTest<Opcode> &d, CpuState &state);
 };
 
 template <byte Opcode>
-struct DataProcessingTest {
+struct DataProcessingTest : public ArmInstructionTestWithFlags<DataProcessing> {
   bool s;
   byte irn, ird;
   gword_t rn;
   gword_t input_flags;
   gword_t output_flags;
 
-  unordered_map<string, gword_t> value_map;
 
   DataProcessingTest(bool s, byte irn, byte ird, gword_t rn, gword_t input_flags, gword_t output_flags)
-    : s(s),
+    : ArmInstructionTestWithFlags<DataProcessing>(input_flags, output_flags),
+      s(s),
       irn(irn),
       ird(ird),
       rn(rn),
@@ -53,52 +52,29 @@ struct DataProcessingTest {
       output_flags(output_flags) {}
 
   byte get_opcode() { return Opcode; }
-  virtual const InstructionDefinition &get_definition() = 0;
   
-  virtual void prepare_state(CpuState &state) {
-    value_map = get_definition().generate_value_map();
+  void prepare_state(CpuState &state) override {
+    ArmInstructionTestWithFlags<DataProcessing>::prepare_state(state);
+
     value_map["Rn"] = irn;
     value_map["Rd"] = ird;
     value_map["S"] = s;
+    value_map["opcode"] = get_opcode();
 
     state.get_register(irn) = rn;
-    state.clear_flag(CpuState::ALL_FLAGS);
-    state.set_flag(input_flags);
   }
 
-  void execute(CpuState &state) {
-    const InstructionDefinition &def = get_definition();
-
-    value_map["opcode"] = get_opcode();
-    gword_t ins = def.build(value_map);
-    DataProcessing dp(ins);
-    string out;
-
-    dp.execute(state);
-  }
-
-  void check_requirements(CpuState &state) {
+  void check_requirements(CpuState &state) override {
     REQUIRE(state.get_register(ird) == expected_value(state));
 
     if (s) {
-      REQUIRE(bool(output_flags & CpuState::C_FLAG) == bool(state.get_flag(CpuState::C_FLAG)));
-      REQUIRE(bool(output_flags & CpuState::Z_FLAG) == bool(state.get_flag(CpuState::Z_FLAG)));
-      REQUIRE(bool(output_flags & CpuState::V_FLAG) == bool(state.get_flag(CpuState::V_FLAG)));
-      REQUIRE(bool(output_flags & CpuState::N_FLAG) == bool(state.get_flag(CpuState::N_FLAG)));
+      ArmInstructionTestWithFlags<DataProcessing>::check_requirements(state);
     }
   }
 
   virtual gword_t calculate_operand(CpuState &state) = 0;
   gword_t expected_value(CpuState &state) {
     return Mock<Opcode>().expected_value(*this, state);
-  }
-
-  void test(CpuState &state) {
-    prepare_state(state);
-    // state.print_registers();
-    execute(state);
-    // state.print_registers();
-    check_requirements(state);
   }
 
 };
@@ -143,20 +119,16 @@ void no_flag_tests_reg_shift() {
   const gword_t RM = 2;
   const gword_t RS = 3;
 
-  SimpleMemory memory;
-  ArmCpuState arm_state(memory);
-  CpuState &state = arm_state;
-
   auto rn = GENERATE(0, 1, 0x7FFFFFFE, 0xFFFFFFFE);
   auto rs = GENERATE(0, 1, 2, 4, 8, 16, 31, 255);
   auto rm = GENERATE(1, 3, 5, 123, (gword_t) -41, (gword_t) -12345);
   auto sh = GENERATE(BitShift::LEFT, BitShift::LRIGHT, BitShift::ARIGHT);
   
   RegShiftTest<Opcode> test(false, RN, RD, rn, 0, 0, RS, rs, sh, RM, rm);
-  test.test(state);
+  test.test();
 
   RegShiftTest<Opcode> test_with_carry(false, RN, RD, rn, CpuState::C_FLAG, 0, RS, rs, sh, RM, rm);
-  test_with_carry.test(state);
+  test_with_carry.test();
 }
 
 template<byte Opcode>
@@ -187,19 +159,15 @@ void no_flag_tests_imm_rotate() {
   const gword_t RN = 0;
   const gword_t RD = 1;
 
-  SimpleMemory memory;
-  ArmCpuState arm_state(memory);
-  CpuState &state = arm_state;
-
   auto rn = GENERATE(0, 1, 0x7FFFFFFE, 0xFFFFFFFE);
   auto rotate = GENERATE(1, 2, 3, 15);
   auto imm = GENERATE(0, 1, 3, 4, 6, 14, 15, 16, 254, 255);
   
   ImmRotateTest<Opcode> test(false, RN, RD, rn, 0, 0, rotate, imm);
-  test.test(state);
+  test.test();
 
   ImmRotateTest<Opcode> test_with_carry(false, RN, RD, rn, CpuState::C_FLAG, 0, rotate, imm);
-  test_with_carry.test(state);
+  test_with_carry.test();
 }
 
 template<byte Opcode>
@@ -226,6 +194,7 @@ struct ImmShiftTest : public DataProcessingTest<Opcode> {
     this->value_map["Rm"] = irm;
 
     state.get_register(irm) = rm;
+
   }
 
   gword_t calculate_operand(CpuState &state) override {
@@ -239,23 +208,19 @@ void no_flag_tests_imm_shift() {
   const gword_t RD = 1;
   const gword_t RN = 2;
   
-  SimpleMemory memory;
-  ArmCpuState arm_state(memory);
-  CpuState &state = arm_state;
- 
-  auto shift_imm = GENERATE(0, 1, 2, 4, 31, 32, 255);
+  auto shift_imm = GENERATE(0, 1, 2, 4, 31, 255);
   auto sh = GENERATE(BitShift::LEFT, BitShift::LRIGHT, BitShift::ARIGHT);
   auto rm = GENERATE(1, 3, 5, 123, (gword_t) -41, (gword_t) -12345);
   auto rn = GENERATE(0, 1, 0x7FFFFFFE, 0xFFFFFFFE);
 
   SECTION("without carry") {
     ImmShiftTest<Opcode> test(false, RN, RD, rn, 0, 0, shift_imm, sh, RM, rm);
-    test.test(state);
+    test.test();
   }
   
   SECTION("with carry") {
-    ImmShiftTest<Opcode> test_with_carry(false, RN, RD, rn, 0, 0, shift_imm, sh, RM, rm);
-    test_with_carry.test(state);
+    ImmShiftTest<Opcode> test_with_carry(false, RN, RD, rn, CpuState::C_FLAG, 0, shift_imm, sh, RM, rm);
+    test_with_carry.test();
   }
 }
 
@@ -264,75 +229,63 @@ gword_t Mock<Opcode::ADC>::expected_value(DataProcessingTest<Opcode::ADC> &d, Cp
   return state.get_register(d.irn) + d.calculate_operand(state) + bool((gword_t) d.input_flags & CpuState::C_FLAG);
 }
 
-TEST_CASE("data_processing::ADC (reg shift)") {
+TEST_CASE("ADC (reg shift)") {
   const gword_t RN = 0;
   const gword_t RD = 1;
   const gword_t RM = 2;
   const gword_t RS = 3;
-
-  SimpleMemory memory;
-  ArmCpuState arm_state(memory);
-  CpuState &state = arm_state;
 
   no_flag_tests_reg_shift<Opcode::ADC>();
 
   // Test signed overflow
   SECTION("without carry") {
     RegShiftTest<Opcode::ADC> signed_overflow(true, RN, RD, 0x7FFFFFFE, 0, CpuState::V_FLAG | CpuState::N_FLAG, RS, 1, BitShift::LEFT, RM, 1);
-    signed_overflow.test(state);
+    signed_overflow.test();
   }
 
   // Test unsigned overflow i.e. carry bit
   SECTION("with carry") {
     RegShiftTest<Opcode::ADC> test_carry(true, RN, RD, 0xFFFFFFFF, 0, CpuState::C_FLAG, RS, 1, BitShift::LEFT, RM, 1);
-    test_carry.test(state);
+    test_carry.test();
   }
 }
 
-TEST_CASE("data_processing::ADC (imm shift)") {
+TEST_CASE("ADC (imm shift)") {
   const gword_t RN = 0;
   const gword_t RD = 1;
   const gword_t RM = 2;
 
-  SimpleMemory memory;
-  ArmCpuState arm_state(memory);
-  CpuState &state = arm_state;
-  
   no_flag_tests_imm_shift<Opcode::ADC>();
   
   // Test signed overflow
   SECTION("without carry") {
     ImmShiftTest<Opcode::ADC> signed_overflow(true, RN, RD, 0x7FFFFFFF, 0, CpuState::V_FLAG | CpuState::N_FLAG, 1, BitShift::LEFT, RM, 1);
-    signed_overflow.test(state);
+    signed_overflow.test();
   }
 
   // Test unsigned overflow i.e. carry bit
   SECTION("with carry") {
     ImmShiftTest<Opcode::ADC> test_carry(true, RN, RD, 0xFFFFFFFF, 0, CpuState::C_FLAG, 1, BitShift::LEFT, RM, 1);
-    test_carry.test(state);
+    test_carry.test();
   }
 }
 
-TEST_CASE("data_processing::ADC (imm rot)") {
+TEST_CASE("ADC (imm rot)") {
   const gword_t RN = 0;
   const gword_t RD = 1;
 
-  SimpleMemory memory;
-  ArmCpuState arm_state(memory);
-  CpuState &state = arm_state;
- 
   no_flag_tests_imm_rotate<Opcode::ADC>();
   
   // Test signed overflow
   SECTION("signed overflow") {
     ImmRotateTest<Opcode::ADC> signed_overflow(true, RN, RD, 0x7FFFFFFF, 0, CpuState::V_FLAG | CpuState::N_FLAG, 0, 1);
-    signed_overflow.test(state);
+    signed_overflow.test();
   }
 
   // Test unsigned overflow i.e. carry bit
   SECTION("unsigned overflow") {
     ImmRotateTest<Opcode::ADC> test_carry(true, RN, RD, 0xFFFFFFFF, 0, CpuState::C_FLAG | CpuState::Z_FLAG, 0, 1);
-    test_carry.test(state);
+    test_carry.test();
   }
 }
 
@@ -341,75 +294,63 @@ gword_t Mock<Opcode::ADD>::expected_value(DataProcessingTest<Opcode::ADD> &d, Cp
   return state.get_register(d.irn) + d.calculate_operand(state);
 }
 
-TEST_CASE("data_processing::ADD (reg shift)") {
+TEST_CASE("ADD (reg shift)") {
   const gword_t RN = 0;
   const gword_t RD = 1;
   const gword_t RM = 2;
   const gword_t RS = 3;
-
-  SimpleMemory memory;
-  ArmCpuState arm_state(memory);
-  CpuState &state = arm_state;
 
   no_flag_tests_reg_shift<Opcode::ADD>();
 
   // Test signed overflow
   SECTION("signed overflow") {
     RegShiftTest<Opcode::ADD> signed_overflow(true, RN, RD, 0x7FFFFFFE, 0, CpuState::V_FLAG | CpuState::N_FLAG, RS, 1, BitShift::LEFT, RM, 1);
-    signed_overflow.test(state);
+    signed_overflow.test();
   }
 
   // Test unsigned overflow i.e. carry bit
   SECTION("unsigned overflow") {
     RegShiftTest<Opcode::ADD> test_carry(true, RN, RD, 0xFFFFFFFF, 0, CpuState::C_FLAG, RS, 1, BitShift::LEFT, RM, 1);
-    test_carry.test(state);
+    test_carry.test();
   }
 }
 
-TEST_CASE("data_processing::ADD (imm shift)") {
+TEST_CASE("ADD (imm shift)") {
   const gword_t RN = 0;
   const gword_t RD = 1;
   const gword_t RM = 2;
 
-  SimpleMemory memory;
-  ArmCpuState arm_state(memory);
-  CpuState &state = arm_state;
-  
   no_flag_tests_imm_shift<Opcode::ADD>();
   
   // Test signed overflow
   SECTION("signed overflow") {
     ImmShiftTest<Opcode::ADD> signed_overflow(true, RN, RD, 0x7FFFFFFF, 0, CpuState::V_FLAG | CpuState::N_FLAG, 1, BitShift::LEFT, RM, 1);
-    signed_overflow.test(state);
+    signed_overflow.test();
   }
 
   // Test unsigned overflow i.e. carry bit
   SECTION("unsigned overflow") {
     ImmShiftTest<Opcode::ADD> test_carry(true, RN, RD, 0xFFFFFFFF, 0, CpuState::C_FLAG, 1, BitShift::LEFT, RM, 1);
-    test_carry.test(state);
+    test_carry.test();
   }
 }
 
-TEST_CASE("data_processing::ADD (imm rot)") {
+TEST_CASE("ADD (imm rot)") {
   const gword_t RN = 0;
   const gword_t RD = 1;
 
-  SimpleMemory memory;
-  ArmCpuState arm_state(memory);
-  CpuState &state = arm_state;
-  
   no_flag_tests_imm_rotate<Opcode::ADD>();
   
   // Test signed overflow
   SECTION("signed overflow") {
     ImmRotateTest<Opcode::ADD> signed_overflow(true, RN, RD, 0x7FFFFFFF, 0, CpuState::V_FLAG | CpuState::N_FLAG, 0, 1);
-    signed_overflow.test(state);
+    signed_overflow.test();
   }
 
   // Test unsigned overflow i.e. carry bit
   SECTION("unsigned overflow") {
     ImmRotateTest<Opcode::ADD> test_carry(true, RN, RD, 0xFFFFFFFF, 0, CpuState::C_FLAG | CpuState::Z_FLAG, 0, 1);
-    test_carry.test(state);
+    test_carry.test();
   }
 }
 
@@ -418,15 +359,15 @@ gword_t Mock<Opcode::AND>::expected_value(DataProcessingTest<Opcode::AND> &d, Cp
   return state.get_register(d.irn) & d.calculate_operand(state);
 }
 
-TEST_CASE("data_processing::AND (reg shift)") {
+TEST_CASE("AND (reg shift)") {
   no_flag_tests_reg_shift<Opcode::AND>();
 }
 
-TEST_CASE("data_processing::AND (imm shift)") {
+TEST_CASE("AND (imm shift)") {
   no_flag_tests_imm_shift<Opcode::AND>();
 }
 
-TEST_CASE("data_processing::AND (imm rot)") {
+TEST_CASE("AND (imm rot)") {
   no_flag_tests_imm_rotate<Opcode::AND>();
 }
 
@@ -435,15 +376,15 @@ gword_t Mock<Opcode::BIC>::expected_value(DataProcessingTest<Opcode::BIC> &d, Cp
   return state.get_register(d.irn) & ~d.calculate_operand(state);
 }
 
-TEST_CASE("data_processing::BIC (reg shift)") {
+TEST_CASE("BIC (reg shift)") {
   no_flag_tests_reg_shift<Opcode::BIC>();
 }
 
-TEST_CASE("data_processing::BIC (imm shift)") {
+TEST_CASE("BIC (imm shift)") {
   no_flag_tests_imm_shift<Opcode::BIC>();
 }
 
-TEST_CASE("data_processing::BIC (imm rot)") {
+TEST_CASE("BIC (imm rot)") {
   no_flag_tests_imm_rotate<Opcode::BIC>();
 }
 
@@ -452,15 +393,15 @@ gword_t Mock<Opcode::EOR>::expected_value(DataProcessingTest<Opcode::EOR> &d, Cp
   return state.get_register(d.irn) ^ d.calculate_operand(state);
 }
 
-TEST_CASE("data_processing::EOR (reg shift)") {
+TEST_CASE("EOR (reg shift)") {
   no_flag_tests_reg_shift<Opcode::EOR>();
 }
 
-TEST_CASE("data_processing::EOR (imm shift)") {
+TEST_CASE("OR (imm shift)") {
   no_flag_tests_imm_shift<Opcode::EOR>();
 }
 
-TEST_CASE("data_processing::EOR (imm rot)") {
+TEST_CASE("OR (imm rot)") {
   no_flag_tests_imm_rotate<Opcode::EOR>();
 }
 
@@ -470,15 +411,15 @@ gword_t Mock<Opcode::MOV>::expected_value(DataProcessingTest<Opcode::MOV> &d, Cp
 }
 
 // TODO: C flag carry out
-TEST_CASE("data_processing::MOV (reg shift)") {
+TEST_CASE("OV (reg shift)") {
   no_flag_tests_reg_shift<Opcode::MOV>();
 }
 
-TEST_CASE("data_processing::MOV (imm shift)") {
+TEST_CASE("MOV (imm shift)") {
   no_flag_tests_imm_shift<Opcode::MOV>();
 }
 
-TEST_CASE("data_processing::MOV (imm rot)") {
+TEST_CASE("MOV (imm rot)") {
   no_flag_tests_imm_rotate<Opcode::MOV>();
 }
 
@@ -487,15 +428,15 @@ gword_t Mock<Opcode::MVN>::expected_value(DataProcessingTest<Opcode::MVN> &d, Cp
   return ~d.calculate_operand(state);
 }
 
-TEST_CASE("data_processing::MVN (reg shift)") {
+TEST_CASE("MVN (reg shift)") {
   no_flag_tests_reg_shift<Opcode::MVN>();
 }
 
-TEST_CASE("data_processing::MVN (imm shift)") {
+TEST_CASE("MVN (imm shift)") {
   no_flag_tests_imm_shift<Opcode::MVN>();
 }
 
-TEST_CASE("data_processing::MVN (imm rot)") {
+TEST_CASE("MVN (imm rot)") {
   no_flag_tests_imm_rotate<Opcode::MVN>();
 }
 
@@ -504,15 +445,15 @@ gword_t Mock<Opcode::ORR>::expected_value(DataProcessingTest<Opcode::ORR> &d, Cp
   return state.get_register(d.irn) | d.calculate_operand(state);
 }
 
-TEST_CASE("data_processing::ORR (reg shift)") {
+TEST_CASE("ORR (reg shift)") {
   no_flag_tests_reg_shift<Opcode::ORR>();
 }
 
-TEST_CASE("data_processing::ORR (imm shift)") {
+TEST_CASE("ORR (imm shift)") {
   no_flag_tests_imm_shift<Opcode::ORR>();
 }
 
-TEST_CASE("data_processing::ORR (imm rot)") {
+TEST_CASE("ORR (imm rot)") {
   no_flag_tests_imm_rotate<Opcode::ORR>();
 }
 
@@ -521,15 +462,15 @@ gword_t Mock<Opcode::RSB>::expected_value(DataProcessingTest<Opcode::RSB> &d, Cp
   return  d.calculate_operand(state) - state.get_register(d.irn);
 }
 
-TEST_CASE("data_processing::RSB (reg shift)") {
+TEST_CASE("RSB (reg shift)") {
   no_flag_tests_reg_shift<Opcode::RSB>();
 }
 
-TEST_CASE("data_processing::RSB (imm shift)") {
+TEST_CASE("RSB (imm shift)") {
   no_flag_tests_imm_shift<Opcode::RSB>();
 }
 
-TEST_CASE("data_processing::RSB (imm rot)") {
+TEST_CASE("RSB (imm rot)") {
   no_flag_tests_imm_rotate<Opcode::RSB>();
 }
 
@@ -538,41 +479,37 @@ gword_t Mock<Opcode::RSC>::expected_value(DataProcessingTest<Opcode::RSC> &d, Cp
   return d.calculate_operand(state) - state.get_register(d.irn) - !bool(d.input_flags & CpuState::C_FLAG);
 }
 
-TEST_CASE("data_processing::RSC (reg shift)") {
+TEST_CASE("RSC (reg shift)") {
   const gword_t RN = 0;
   const gword_t RD = 1;
   const gword_t RM = 2;
   const gword_t RS = 3;
-
-  SimpleMemory memory;
-  ArmCpuState arm_state(memory);
-  CpuState &state = arm_state;
 
   no_flag_tests_reg_shift<Opcode::RSC>();
 
   // Test signed overflow
   SECTION("signed overflow") {
     RegShiftTest<Opcode::RSC> signed_overflow(true, RN, RD, 0x80000000, 0, CpuState::V_FLAG | CpuState::N_FLAG, RS, 2, BitShift::LEFT, RM, 2);
-    signed_overflow.test(state);
+    signed_overflow.test();
   }
 
   // Test borrow from
   SECTION("unsigned overflow") {
     RegShiftTest<Opcode::RSC> test_no_borrow(true, RN, RD, 0x7FFFFFFF, 0, CpuState::N_FLAG, RS, 2, BitShift::LEFT, RM, 2);
-    test_no_borrow.test(state);
+    test_no_borrow.test();
   }
 
   SECTION("not unsigned overflow") {
     RegShiftTest<Opcode::RSC> test_borrow_not(true, RN, RD, 4, 0, CpuState::C_FLAG, RS, 2, BitShift::LEFT, RM, 2);
-    test_borrow_not.test(state);
+    test_borrow_not.test();
   }
 }
 
-TEST_CASE("data_processing::RSC (imm shift)") {
+TEST_CASE("RSC (imm shift)") {
   no_flag_tests_imm_shift<Opcode::RSC>();
 }
 
-TEST_CASE("data_processing::RSC (imm rot)") {
+TEST_CASE("RSC (imm rot)") {
   no_flag_tests_imm_rotate<Opcode::RSC>();
 }
 
@@ -581,15 +518,11 @@ gword_t Mock<Opcode::SBC>::expected_value(DataProcessingTest<Opcode::SBC> &d, Cp
   return state.get_register(d.irn) - d.calculate_operand(state) - !bool(d.input_flags & CpuState::C_FLAG);
 }
 
-TEST_CASE("data_processing::SBC (reg shift)") {
+TEST_CASE("SBC (reg shift)") {
   const gword_t RN = 0;
   const gword_t RD = 1;
   const gword_t RM = 2;
   const gword_t RS = 3;
-
-  SimpleMemory memory;
-  ArmCpuState arm_state(memory);
-  CpuState &state = arm_state;
 
   no_flag_tests_reg_shift<Opcode::SBC>();
 
@@ -599,25 +532,25 @@ TEST_CASE("data_processing::SBC (reg shift)") {
       true, RN, RD, 0x7FFFFFFF, CpuState::C_FLAG, CpuState::V_FLAG | CpuState::N_FLAG,
       RS, 0, BitShift::LEFT, RM, -1
     );
-    signed_overflow.test(state);
+    signed_overflow.test();
   }
 
   SECTION("unsigned overflow") {
     RegShiftTest<Opcode::SBC> test_no_borrow(true, RN, RD, 0, 0, CpuState::N_FLAG, RS, 0, BitShift::LEFT, RM, 0);
-    test_no_borrow.test(state);
+    test_no_borrow.test();
   }
 
   SECTION("not unsigned overflow") {
     RegShiftTest<Opcode::SBC> test_borrow_not(true, RN, RD, 16, 0, CpuState::C_FLAG, RS, 1, BitShift::LEFT, RM, 1);
-    test_borrow_not.test(state);
+    test_borrow_not.test();
   }
 }
 
-TEST_CASE("data_processing::SBC (imm shift)") {
+TEST_CASE("SBC (imm shift)") {
   no_flag_tests_imm_shift<Opcode::SBC>();
 }
 
-TEST_CASE("data_processing::SBC (imm rot)") {
+TEST_CASE("SBC (imm rot)") {
   no_flag_tests_imm_rotate<Opcode::SBC>();
 }
 
@@ -626,15 +559,11 @@ gword_t Mock<Opcode::SUB>::expected_value(DataProcessingTest<Opcode::SUB> &d, Cp
   return state.get_register(d.irn) - d.calculate_operand(state);
 }
 
-TEST_CASE("data_processing::SUB (reg shift)") {
+TEST_CASE("SUB (reg shift)") {
   const gword_t RN = 0;
   const gword_t RD = 1;
   const gword_t RM = 2;
   const gword_t RS = 3;
-
-  SimpleMemory memory;
-  ArmCpuState arm_state(memory);
-  CpuState &state = arm_state;
 
   no_flag_tests_reg_shift<Opcode::SUB>();
 
@@ -644,26 +573,26 @@ TEST_CASE("data_processing::SUB (reg shift)") {
       true, RN, RD, 0x7FFFFFFF, CpuState::C_FLAG, CpuState::V_FLAG | CpuState::N_FLAG,
       RS, 0, BitShift::LEFT, RM, -1
     );
-    signed_overflow.test(state);
+    signed_overflow.test();
   }
 
   // Test borrow from
   SECTION("N flag") {
     RegShiftTest<Opcode::SUB> test_no_borrow(true, RN, RD, 0, 0, CpuState::N_FLAG, RS, 1, BitShift::LEFT, RM, 1);
-    test_no_borrow.test(state);
+    test_no_borrow.test();
   }
 
   SECTION("C flag") {
     RegShiftTest<Opcode::SUB> test_borrow_not(true, RN, RD, 16, 0, CpuState::C_FLAG, RS, 1, BitShift::LEFT, RM, 1);
-    test_borrow_not.test(state);
+    test_borrow_not.test();
   }
 }
 
-TEST_CASE("data_processing::SUB (imm shift)") {
+TEST_CASE("SUB (imm shift)") {
   no_flag_tests_imm_shift<Opcode::SUB>();
 }
 
-TEST_CASE("data_processing::SUB (imm rot)") {
+TEST_CASE("SUB (imm rot)") {
   no_flag_tests_imm_rotate<Opcode::SUB>();
 }
 
@@ -672,38 +601,34 @@ gword_t Mock<Opcode::CMN>::expected_value(DataProcessingTest<Opcode::CMN> &d, Cp
   return state.get_register(d.ird);
 }
 
-TEST_CASE("data_processing::CMN (reg shift)") {
+TEST_CASE("CMN (reg shift)") {
   const gword_t RN = 0;
   const gword_t RD = 1;
   const gword_t RM = 2;
   const gword_t RS = 3;
 
-  SimpleMemory memory;
-  ArmCpuState arm_state(memory);
-  CpuState &state = arm_state;
-
   // Test zero
   SECTION("Z flag") {
     RegShiftTest<Opcode::CMN> zero_test(true, RN, RD, 0, 0, CpuState::Z_FLAG, RS, 0, BitShift::LEFT, RM, 0);
-    zero_test.test(state);
+    zero_test.test();
   }
 
   // Test negative 
   SECTION("N flag") {
     RegShiftTest<Opcode::CMN> negative_test(true, RN, RD, 0, 0, CpuState::N_FLAG, RS, 0, BitShift::LEFT, RM, -1);
-    negative_test.test(state);
+    negative_test.test();
   }
 
   // Test carry 
   SECTION("C flag") {
     RegShiftTest<Opcode::CMN> carry_test(true, RN, RD, 0xFFFFFFFF, 0, CpuState::C_FLAG, RS, 0, BitShift::LEFT, RM, 2);
-    carry_test.test(state);
+    carry_test.test();
   }
 
   // Test overflow
   SECTION("V flag") {
     RegShiftTest<Opcode::CMN> overflow_test(true, RN, RD, 0x7FFFFFFF, 0, CpuState::N_FLAG | CpuState::V_FLAG, RS, 0, BitShift::LEFT, RM, 1);
-    overflow_test.test(state);
+    overflow_test.test();
   }
 }
 
@@ -712,43 +637,39 @@ gword_t Mock<Opcode::CMP>::expected_value(DataProcessingTest<Opcode::CMP> &d, Cp
   return state.get_register(d.ird);
 }
 
-TEST_CASE("data_processing::CMP (reg shift)") {
+TEST_CASE("CMP (reg shift)") {
   const gword_t RN = 0;
   const gword_t RD = 1;
   const gword_t RM = 2;
   const gword_t RS = 3;
 
-  SimpleMemory memory;
-  ArmCpuState arm_state(memory);
-  CpuState &state = arm_state;
-
   // Test zero
   SECTION("Z flag") {
     RegShiftTest<Opcode::CMP> zero_test(true, RN, RD, 1, 0, CpuState::C_FLAG | CpuState::Z_FLAG, RS, 0, BitShift::LEFT, RM, 1);
-    zero_test.test(state);
+    zero_test.test();
   }
 
   // Test negative 
   SECTION("N flag") {
     RegShiftTest<Opcode::CMP> negative_test(true, RN, RD, 0, 0, CpuState::N_FLAG, RS, 0, BitShift::LEFT, RM, 1);
-    negative_test.test(state);
+    negative_test.test();
   }
 
   // Test carry not
   SECTION("C flag") {
     RegShiftTest<Opcode::CMP> carry_not_test(true, RN, RD, 4, 0, CpuState::C_FLAG, RS, 0, BitShift::LEFT, RM, 2);
-    carry_not_test.test(state);
+    carry_not_test.test();
   }
 
   SECTION("not C flag") {
     RegShiftTest<Opcode::CMP> carry_test(true, RN, RD, 4, 0, CpuState::N_FLAG, RS, 0, BitShift::LEFT, RM, 5);
-    carry_test.test(state);
+    carry_test.test();
   }
 
   // Test overflow
   SECTION("V flag") {
     RegShiftTest<Opcode::CMP> overflow_test(true, RN, RD, 0x7FFFFFFF, 0, CpuState::N_FLAG | CpuState::V_FLAG, RS, 0, BitShift::LEFT, RM, -1);
-    overflow_test.test(state);
+    overflow_test.test();
   }
 }
 
@@ -757,31 +678,27 @@ gword_t Mock<Opcode::TEQ>::expected_value(DataProcessingTest<Opcode::TEQ> &d, Cp
   return state.get_register(d.ird);
 }
 
-TEST_CASE("data_processing::TEQ (reg shift)") {
+TEST_CASE("TEQ (reg shift)") {
   const gword_t RN = 0;
   const gword_t RD = 1;
   const gword_t RM = 2;
   const gword_t RS = 3;
 
-  SimpleMemory memory;
-  ArmCpuState arm_state(memory);
-  CpuState &state = arm_state;
-
   // Test zero
   SECTION("Z flag") {
     RegShiftTest<Opcode::TEQ> zero_test(true, RN, RD, 0xDEAD, 0, CpuState::Z_FLAG, RS, 0, BitShift::LEFT, RM, 0xDEAD);
-    zero_test.test(state);
+    zero_test.test();
   }
 
   // Test negative 
   SECTION("N flag") {
     RegShiftTest<Opcode::TEQ> negative_test(true, RN, RD, 0x80000000, 0, CpuState::N_FLAG, RS, 0, BitShift::LEFT, RM, 0x7FFFFFFF);
-    negative_test.test(state);
+    negative_test.test();
   }
 
   // Test carry
   SECTION("C flag") {
     RegShiftTest<Opcode::TEQ> carry_test(true, RN, RD, 0, 0, CpuState::C_FLAG | CpuState::N_FLAG, RS, 1, BitShift::LEFT, RM, 0xFFFFFFFF);
-    carry_test.test(state);
+    carry_test.test();
   }
 }

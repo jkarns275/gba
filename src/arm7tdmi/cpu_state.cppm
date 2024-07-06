@@ -140,7 +140,7 @@ struct Memory {
 };
 
 struct SimpleMemory : public Memory {
-  byte data[0x3000];
+  byte data[0x3000] = {0};
 
   glong_t &long_at(gword_t addr, Mode mode) override { return ((glong_t *) data)[addr / 8]; }
   signed_glong_t &signed_long_at(gword_t addr, Mode mode) override { return ((signed_glong_t *) data)[addr / 8]; }
@@ -336,13 +336,10 @@ struct ArmCpuState : public CpuState {
   gword_t &get_register(gword_t index, Mode mode) override {
     assert (index < 16);
     assert (mode != IRQ);
-  
-    if (index == 15)
-      return reg[index];
    
     // Modes other than usr and fiq all have registers 13 and 14 banked.
     // This will point to one of those register banks, mode permitting.
-    gword_t *normal_bank;
+    gword_t *reg_bank;
   
     switch (mode) {
       case USR:
@@ -354,23 +351,25 @@ struct ArmCpuState : public CpuState {
         else
           return reg_bank_fiq[index - 8];
       case SVC:
-        normal_bank = reg_bank_svc;
+        reg_bank = reg_bank_svc;
         break;
       case ABT:
-        normal_bank = reg_bank_abt;
+        reg_bank = reg_bank_abt;
         break;
       case IRQ:
-        normal_bank = reg_bank_irq;
+        reg_bank = reg_bank_irq;
         break;
       case UND:
-        normal_bank = reg_bank_und;
+        reg_bank = reg_bank_und;
         break;
     }
-  
-    if (index < 13)
+    
+    if (index == 15)
+      return reg[index];
+    else if (index < 13)
       return reg[index];
     else
-      return normal_bank[index - 13];
+      return reg_bank[index - 13];
   }
   
   gword_t &get_cpsr() override {

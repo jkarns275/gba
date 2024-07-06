@@ -26,44 +26,6 @@ using std::variant;
 export {
   ;
 
-// Not included in ARMv4
-// struct EnhancedDSPAdditive : public Ins {
-//   static inline const InstructionDefinition *definition = new InstructionDefinition({
-//     new CondPiece(), new ValuePiece(0b00010, 5), new IntegralPiece(2, "op"), new Zeros(1), new RegPiece("Rn"), new RegPiece("Rd"), new Zeros(4),
-//     new ValuePiece(0b0101, 4), new RegPiece("Rm")
-//   });
-//  
-//   byte op, irn, ird, irm;
-// 
-//   EnhancedDSPAdditive(gword_t instruction)
-//     : Ins(instruction),
-//       op((nibbles[5] & 0b0110) >> 1),
-//       irn(nibbles[4]),
-//       ird(nibbles[3]),
-//       irm(nibbles[0]) { }
-// };
-
-// Not included in ARMv4
-// struct EnhancedDSPMultiplicative : public Ins {
-//   static inline const InstructionDefinition *definition = new InstructionDefinition({
-//     new CondPiece(), new ValuePiece(0b00010, 5), new IntegralPiece(2, "op"), new Zeros(1), new RegPiece("Rd"), new RegPiece("Rn"), new RegPiece("Rs"),
-//     new Ones(1), new BoolPiece("y"), new BoolPiece("x"), new Zeros(0), new RegPiece("Rm")
-//   });
-//   
-//   bool x, y;
-//   byte op, ird, irn, irs, irm;
-// 
-//   EnhancedDSPMultiplicative(gword_t instruction)
-//     : Ins(instruction),
-//       x(nibbles[1] | 0b0010),
-//       y(nibbles[1] | 0b0100),
-//       op((nibbles[5] & 0b0110) >> 1),
-//       ird(nibbles[4]),
-//       irn(nibbles[3]),
-//       irs(nibbles[2]),
-//       irm(nibbles[0]) { }
-// };
-
 struct UndefinedInstruction : public Ins {
   gword_t instruction;
 
@@ -79,7 +41,7 @@ struct ArmInstruction {
     MulShort,
     MulLong,
     SingleDataSwap,
-    Load,
+    LoadStore,
     DataProcessing,
     MovStatusToReg,
     MovToStatus,
@@ -177,7 +139,7 @@ struct ArmInstruction {
                 }
               }
             } else {
-              this->instruction = Load(instruction);
+              this->instruction = LoadStore(instruction);
             }
             break;
         }
@@ -249,7 +211,7 @@ void initialize_definition_map() {
   map.insert({"MulShort", {MulShort::definition}});
   map.insert({"MulLong", {MulLong::definition}});
   map.insert({"SingleDataSwap", {SingleDataSwap::definition}});
-  map.insert({"Load", Load::definitions});
+  map.insert({"LoadStore", LoadStore::definitions});
   map.insert({"DataProcessing", DataProcessing::definitions});
   map.insert({"MovStatusToReg", {MovStatusToReg::definition}});
   map.insert({"MovToStatus", {MovToStatus::definition}});

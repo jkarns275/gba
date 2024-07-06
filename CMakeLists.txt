@@ -24,7 +24,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     list(APPEND CMAKE_CXX_FLAGS "-fsanitize=address")
 endif()
 
-set(CMAKE_CXX_FLAGS_DEBUG "-O0")
+set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 
 add_subdirectory(src)

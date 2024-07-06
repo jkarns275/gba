@@ -285,6 +285,7 @@ struct InstructionDefinition {
     
     for (size_t i = 0; i < pieces.size(); i++) {
       pieces[i]->build(values, instruction);
+      auto name = pieces[i]->get_name();
     }
 
     return instruction;
@@ -296,7 +297,7 @@ struct InstructionDefinition {
     for (size_t i = 0; i < pieces.size(); i++) {
       optional<string> name = pieces[i]->get_name();
       if (name) {
-        map.insert({std::move(*name), *pieces[i]->iterator().get()});
+        map.insert({std::move(*name), 0});
       }
     }
 

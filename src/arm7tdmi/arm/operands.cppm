@@ -1,4 +1,5 @@
 module;
+#include <algorithm>
 #include <iostream>
 
 export module arm7tdmi.arm.operands;
@@ -50,14 +51,14 @@ struct ImmShiftOperand : public ShifterOperand {
   BitShift shift_type;
   
   ImmShiftOperand(byte shift_by, byte irm, BitShift shift_type)
-    : shift_by(shift_by & 0x1F),
+    : shift_by(shift_by),
       irm(irm),
       shift_type(shift_type) { }
 
   ImmShiftOperand(gword_t instruction) {
     Nibbles nibbles(instruction);
 
-    shift_by = (byte) ((instruction & 0xF80) >> 7);
+    shift_by = std::min<byte>(31, (byte) ((instruction & 0xF80) >> 7));
     irm = nibbles[0];
     shift_type = (BitShift) ((nibbles[1] & 0b0110) >> 1);
   }
@@ -66,16 +67,18 @@ struct ImmShiftOperand : public ShifterOperand {
     constexpr gword_t MASK = flag_mask(31);
     gword_t reg = state.get_register(irm);
 
+
     if (irm == 0xF)
       reg += 8;
     
     gword_t value, carry;
     if (shift_by) {
       carry = bool(flag_mask(shift_by - 1) & reg);
+      
       switch (shift_type) {
         case LEFT:
           value = reg << shift_by;
-          carry = bool(asr<signed_gword_t>(reg, 32 - shift_by) & reg);
+          carry = bool(flag_mask(32 - shift_by) & reg);
           break;
 
         case LRIGHT:
@@ -101,7 +104,7 @@ struct ImmShiftOperand : public ShifterOperand {
         }
         case LRIGHT: {
           value = 0;
-          carry = MASK & 1;
+          carry = bool(MASK & reg);
           break;
         }
           
@@ -120,7 +123,7 @@ struct ImmShiftOperand : public ShifterOperand {
         }
       }
     }
-
+    
     return { value, carry };
   }
 };
@@ -154,10 +157,10 @@ struct RegShiftOperand : public ShifterOperand {
       case LEFT:
         if (shift == 0) {
           value = rm;
-          carry = bool(state.get_flag(CpuState::C_FLAG));
+          carry = state.get_flag(CpuState::C_FLAG);
         } else if (shift < 32) {
           value = rm << shift;
-          carry = bool(flag_mask(32 - shift) & rm);
+          carry = flag_mask(32 - shift) & rm;
         } else if (shift == 32) {
           value = 0;
           carry = rm & 1;
@@ -170,13 +173,13 @@ struct RegShiftOperand : public ShifterOperand {
       case LRIGHT:
         if (shift == 0) {
           value = rm;
-          carry = bool(state.get_flag(CpuState::C_FLAG));
+          carry = state.get_flag(CpuState::C_FLAG);
         } else if (shift < 32) {
           value = lsr<gword_t>(rm, shift);
-          carry = bool(flag_mask(shift - 1) & rm);
+          carry = flag_mask(shift - 1) & rm;
         } else if (shift == 32) {
           value = 0;
-          carry = bool(flag_mask(31) & rm);
+          carry = flag_mask(31) & rm;
         } else {
           value = 0;
           carry = 0;
@@ -186,10 +189,10 @@ struct RegShiftOperand : public ShifterOperand {
       case ARIGHT:
         if (shift == 0) {
           value = rm;
-          carry = bool(state.get_flag(CpuState::C_FLAG));
+          carry = state.get_flag(CpuState::C_FLAG);
         } else if (shift < 32) {
           value = asr<signed_gword_t>(rm, shift);
-          carry = bool(flag_mask(shift - 1) & rm);
+          carry = flag_mask(shift - 1) & rm;
         } else {
           carry = flag_mask(31) & rm;
           if (flag_mask(31) & rm) {
@@ -204,19 +207,19 @@ struct RegShiftOperand : public ShifterOperand {
         gword_t rotation = rs & 0x1F;
         if (shift == 0) {
           value = rm;
-          carry = bool(state.get_flag(CpuState::C_FLAG));
+          carry = state.get_flag(CpuState::C_FLAG);
         } else if (rotation == 0) {
           value = rm;
-          carry = bool(flag_mask(31) & rm);
+          carry = flag_mask(31) & rm;
         } else {
           value = ror<gword_t>(rm, rotation);
-          carry = bool(flag_mask(rotation - 1) & rm);
+          carry = flag_mask(rotation - 1) & rm;
         }
         break;
       }
     }
 
-    return { value, carry };
+    return { value, bool(carry) };
   }
 };
 

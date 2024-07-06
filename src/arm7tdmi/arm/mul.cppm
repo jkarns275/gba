@@ -1,3 +1,6 @@
+module;
+#include <iostream>
+
 export module arm7tdmi.arm.mul;
 
 import arm7tdmi.instruction;
@@ -8,7 +11,7 @@ export {
 struct MulShort : public Ins {
   static inline const InstructionDefinition *definition = new InstructionDefinition({
     new CondPiece(), new Zeros(6), new BoolPiece("A"), new BoolPiece("S"), new IntegralPiece(4, "Rd"),
-    new IntegralPiece(4, "Rn"), new ValuePiece(0b1001, 4), new IntegralPiece(4, "Rm")
+    new IntegralPiece(4, "Rn"), new IntegralPiece(4, "Rs"), new ValuePiece(0b1001, 4), new IntegralPiece(4, "Rm")
   });
 
   static constexpr gword_t MASK_A = flag_mask(21);
@@ -33,18 +36,12 @@ struct MulShort : public Ins {
             rm = state.get_register(irm);
 
     gword_t &cpsr = state.get_cpsr();
-    glong_t rn_long = rn,
-            rs_long = rs,
-            rm_long = rm,
-            rd_long;
 
     if (a) {
-      rd_long = rm_long * rs_long + rn_long;
+      rd = rm * rs + rn;
     } else {
-      rd_long = rm_long * rs_long;
+      rd = rm * rs;
     }
-
-    rd = rd_long & 0xFFFFFFFF;
 
     if (s) {
       cpsr |= CpuState::N_FLAG & rd;
@@ -57,7 +54,7 @@ struct MulShort : public Ins {
 struct MulLong : public Ins {
   static inline const InstructionDefinition *definition = new InstructionDefinition({
     new CondPiece(), new Zeros(4), new Ones(1), new BoolPiece("U"), new BoolPiece("A"), new BoolPiece("S"),
-    new IntegralPiece(4, "RdHi"), new IntegralPiece(4, "RdLo"), new ValuePiece(0b1001, 4), new IntegralPiece(4, "Rm")
+    new IntegralPiece(4, "RdHi"), new IntegralPiece(4, "RdLo"), new RegPiece("Rs"), new ValuePiece(0b1001, 4), new IntegralPiece(4, "Rm")
   });
 
   static inline const gword_t MASK_U = flag_mask(22);
