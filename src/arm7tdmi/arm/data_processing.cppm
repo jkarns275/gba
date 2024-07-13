@@ -54,7 +54,7 @@ struct DataProcessing : public Ins {
   static inline constexpr gword_t V_FLAG = flag_mask(28);
   static inline constexpr gword_t S_FLAG = flag_mask(20); 
 
-  typedef variant<ImmShiftOperand, RegShiftOperand, RotateOperand> Operand;
+  typedef variant<ImmShiftOperand, RegShiftOperand, RotateOperand, ThumbOperand> Operand;
   
   static inline Operand make_operand(gword_t instruction) {
     Nibbles nibbles(instruction);
@@ -97,12 +97,22 @@ struct DataProcessing : public Ins {
   Operand operand;
 
   DataProcessing(gword_t instruction) 
+    : DataProcessing(
+        instruction,
+        (Opcode) ((instruction >> 21) & 0xF),
+        S_FLAG & instruction,
+        nibbles[4],
+        nibbles[3],
+        make_operand(instruction)
+      ) {}
+
+  DataProcessing(gword_t instruction, Opcode opcode, bool s, byte irn, byte ird, Operand operand)
     : Ins(instruction),
-      opcode((Opcode) ((instruction >> 21) & 0xF)),
-      s(S_FLAG & instruction),
-      irn(nibbles[4]),
-      ird(nibbles[3]),
-      operand(make_operand(instruction)) {}
+      opcode(opcode),
+      s(s),
+      irn(irn),
+      ird(ird),
+      operand(operand) { }
 
   virtual void execute(CpuState &cpu_state) override {
     ShifterOperandValue operand = std::visit(

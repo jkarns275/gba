@@ -2,6 +2,7 @@
 #define GBA_ARM7TDMI_INSTRUCTION_DEFINITION
 
 module;
+#include <algorithm>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -260,6 +261,50 @@ struct InstructionDefinition {
   ~InstructionDefinition() {
     for (size_t i = 0; i < pieces.size(); i++)
       delete pieces[i];
+  }
+
+  void print_definition() const {
+    vector<int> sizes;
+    vector<string> names;
+
+    std::cout << "+";
+    for (int i = 0; i < pieces.size(); i++) {
+      optional<string> name = pieces[i]->get_name();
+      if (name) {
+        names.push_back(*name);
+      } else {
+        names.push_back("");
+      }
+
+      sizes.push_back(std::max<gword_t>(names[i].size() + 3, pieces[i]->nbits * 3));
+      for (int j = 0; j < sizes[i] + 3 - (i == pieces.size() - 1); j++) {
+        std::cout << '-';
+      }
+    }
+    std::cout << "+\n";
+
+    for (int i = 0; i < pieces.size(); i++) {
+      std::cout << std::format("| {:^{}} ", std::format("{}/{}", names[i], pieces[i]->nbits), sizes[i]);
+    }
+    std::cout << "|\n";
+
+    for (int i = 0; i < pieces.size(); i++) {
+      string bits;
+      if (!names[i].size()) {
+        gword_t n = *pieces[i]->iterator().get();
+        for (int j = pieces[i]->nbits - 1; j >= 0; j--) {
+          if (n & (1 << j)) {
+            bits += " 1 ";
+          } else {
+            bits += " 0 ";
+          }
+        }
+      } 
+      std::cout << std::format("| {:^{}} ", bits, sizes[i]);
+    }
+    std::cout << "|\n";
+
+
   }
 
   vector<DecodedPiece> validate(gword_t instruction) const {

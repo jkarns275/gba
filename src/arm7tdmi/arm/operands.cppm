@@ -41,8 +41,20 @@ struct RotateOperand : public ShifterOperand {
     constexpr gword_t MASK = flag_mask(31);
 
     gword_t shifter = ror<gword_t>(imm, rotate * 2);
-    gword_t carry = rotate ? bool(shifter & MASK): state.get_flag(CpuState::C_FLAG);
+    gword_t carry = rotate ? bool(shifter & MASK) : state.get_flag(CpuState::C_FLAG);
     return { shifter, carry };
+  }
+};
+
+struct ThumbOperand : public ShifterOperand {
+  byte irm;
+
+  ThumbOperand(byte irm) : irm(irm) { }
+
+  ThumbOperand(gshort_t instruction) : irm((instruction >> 3) & 0b11) {}
+
+  ShifterOperandValue evaluate(CpuState &state) override {
+    return { state.get_register(irm), 0 };
   }
 };
 
