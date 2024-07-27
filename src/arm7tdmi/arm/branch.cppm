@@ -18,7 +18,15 @@ struct BranchExchange : public Ins {
   bool set_lr;
   gword_t irm;
 
-  BranchExchange(gword_t instruction) : Ins(instruction), set_lr(instruction & MASK_LR), irm(nibbles[0]) {}
+  BranchExchange(gword_t instruction)
+    : Ins(instruction),
+      set_lr(instruction & MASK_LR),
+      irm(nibbles[0]) {}
+
+  BranchExchange(gword_t instruction, bool set_lr, byte irm)
+    : Ins(instruction),
+      set_lr(set_lr),
+      irm(irm) {}
 
   void execute(CpuState &state) override {
     if (set_lr)
@@ -60,6 +68,12 @@ struct BranchWithLink : public Ins {
     if (exchange)
       offset += gword_t(l) << 1;
   }
+
+  BranchWithLink(gword_t instruction, bool l, bool exchange, signed_gword_t offset)
+    : Ins(instruction),
+      l(l),
+      exchange(exchange),
+      offset(offset) {}
 
   void execute(CpuState &state) override {
     if (exchange || l) {

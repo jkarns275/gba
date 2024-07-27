@@ -25,6 +25,7 @@ struct SoftwareInterrupt : public Ins {
   gword_t swi_number;
 
   SoftwareInterrupt(gword_t instruction) : Ins(instruction), swi_number(instruction & 0xFFFFFF) { }
+  SoftwareInterrupt(gword_t instruction, gword_t swi_number) : Ins(instruction), swi_number(swi_number) { }
 
   void execute(CpuState &state) override {
     state.get_register(14, Mode::SVC) = state.get_pc() + 4;

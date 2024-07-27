@@ -1,4 +1,4 @@
-file(GLOB ARM7TDMI_TEST_SRCS arm7tdmi/*.cppm arm7tdmi/arm/*.cppm)
+file(GLOB ARM7TDMI_TEST_SRCS arm7tdmi/*.cppm arm7tdmi/arm/*.cppm arm7tdmi/thumb/*.cppm)
 
 add_executable(arm7tdmi_tests)
 target_sources(arm7tdmi_tests

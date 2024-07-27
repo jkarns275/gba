@@ -82,8 +82,6 @@ inline constexpr itype count_leading_zeros(itype x) noexcept {
   return std::countl_zero(x);
 }
 
-constexpr gword_t GWORD_T_SIGN_BIT = flag_mask(31);
-
 }
 
 #endif

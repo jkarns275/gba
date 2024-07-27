@@ -11,8 +11,11 @@ import arm7tdmi.arm.operands;
 using std::variant;
 using std::vector;
 
+static constexpr gword_t GWORD_T_SIGN_BIT = ror<gword_t>(1, 1);
+
 export {
   ;
+
 
 struct CheckedResult {
   gword_t value, carry, overflow;
@@ -97,14 +100,12 @@ struct DataProcessing : public Ins {
   Operand operand;
 
   DataProcessing(gword_t instruction) 
-    : DataProcessing(
-        instruction,
-        (Opcode) ((instruction >> 21) & 0xF),
-        S_FLAG & instruction,
-        nibbles[4],
-        nibbles[3],
-        make_operand(instruction)
-      ) {}
+    : Ins(instruction),
+      opcode((Opcode) ((instruction >> 21) & 0xF)),
+      s(S_FLAG & instruction),
+      irn(nibbles[4]),
+      ird(nibbles[3]),
+      operand(make_operand(instruction)) {}
 
   DataProcessing(gword_t instruction, Opcode opcode, bool s, byte irn, byte ird, Operand operand)
     : Ins(instruction),
@@ -114,7 +115,7 @@ struct DataProcessing : public Ins {
       ird(ird),
       operand(operand) { }
 
-  virtual void execute(CpuState &cpu_state) override {
+  void execute(CpuState &cpu_state) override {
     ShifterOperandValue operand = std::visit(
       [&](ShifterOperand &op) { return op.evaluate(cpu_state); },
       this->operand

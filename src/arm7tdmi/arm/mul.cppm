@@ -28,6 +28,15 @@ struct MulShort : public Ins {
       irn(nibbles[3]),
       irs(nibbles[2]),
       irm(nibbles[0]) { }
+  
+  MulShort(gword_t instruction, bool a, bool s, byte ird, byte irn, byte irs, byte irm)
+    : Ins(instruction),
+      a(a),
+      s(s),
+      ird(ird),
+      irn(irn),
+      irs(irs),
+      irm(irm) {}
 
   void execute(CpuState &state) override {
     gword_t &rd = state.get_register(ird),

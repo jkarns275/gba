@@ -54,8 +54,6 @@ struct DecodedPiece {
   DecodedPiece(gword_t piece, gword_t length, string name) : piece(piece), length(length), name(std::move(name)) {}
 };
 
-constexpr gword_t INS_SIZE = 32;
-
 struct InsPiece {
   const gword_t nbits;
 
@@ -71,6 +69,10 @@ struct InsPiece {
     return biterator(2);
   }
 
+  virtual gword_t get_instruction_size() const {
+    return 32;
+  }
+
   virtual ~InsPiece() {}
 };
 
@@ -84,6 +86,12 @@ struct NamedInsPiece : public InsPiece {
   }
 };
 
+struct TNamedInsPiece : public NamedInsPiece {
+  using NamedInsPiece::NamedInsPiece;
+
+  gword_t get_instruction_size() const override { return 16; }
+};
+
 struct BoolPiece : public NamedInsPiece {
 
   BoolPiece(string &&name) : NamedInsPiece(1, std::move(name)) { }
@@ -95,7 +103,7 @@ struct BoolPiece : public NamedInsPiece {
   }
 
   bool advance(vector<DecodedPiece> &pieces, gword_t &instruction, gword_t &bits_consumed) override {
-    if (bits_consumed + 1 > INS_SIZE)
+    if (bits_consumed + 1 > get_instruction_size())
       return false;
 
     gword_t bit = instruction & 1;
@@ -117,6 +125,12 @@ struct BoolPiece : public NamedInsPiece {
 
 };
 
+struct TBoolPiece : public BoolPiece {
+  using BoolPiece::BoolPiece;
+  
+  gword_t get_instruction_size() const override { return 16; }
+};
+
 struct IntegralPiece : public NamedInsPiece {
   gword_t iterator_min, iterator_max;
   
@@ -125,7 +139,7 @@ struct IntegralPiece : public NamedInsPiece {
   IntegralPiece(int nbits, string &&name, gword_t iterator_min, gword_t iterator_max) : NamedInsPiece(nbits, std::move(name)), iterator_min(iterator_min), iterator_max(iterator_max) {}
 
   bool advance(vector<DecodedPiece> &pieces, gword_t &instruction, gword_t &bits_consumed) override {
-    if (bits_consumed + nbits > INS_SIZE)
+    if (bits_consumed + nbits > get_instruction_size())
       return false;
 
     gword_t bits = instruction & ((1 << nbits) - 1);
@@ -149,8 +163,20 @@ struct IntegralPiece : public NamedInsPiece {
   }
 };
 
+struct TIntegralPiece : public NamedInsPiece {
+  using NamedInsPiece::NamedInsPiece;
+
+  gword_t get_instruction_size() const override { return 16; }
+};
+
 struct RegPiece : public IntegralPiece {
   RegPiece(string &&name) : IntegralPiece(4, std::move(name)) {}
+};
+
+struct TRegPiece : public IntegralPiece {
+  TRegPiece(string &&name) : IntegralPiece(3, std::move(name)) {}
+
+  gword_t get_instruction_size() const override { return 16; }
 };
 
 struct ValuePiece : public InsPiece {
@@ -159,7 +185,7 @@ struct ValuePiece : public InsPiece {
   ValuePiece(gword_t value, int nbits) : InsPiece(nbits), value(value) {}
   
   bool advance(vector<DecodedPiece> &pieces, gword_t &instruction, gword_t &bits_consumed) override {
-    if (bits_consumed + nbits > INS_SIZE)
+    if (bits_consumed + nbits > get_instruction_size())
       return false;
 
     gword_t value = this->value;
@@ -193,12 +219,24 @@ struct ValuePiece : public InsPiece {
   }
 };
 
+struct TValuePiece : public ValuePiece {
+  using ValuePiece::ValuePiece;
+  
+  gword_t get_instruction_size() const override { return 16; }
+};
+
 struct Zeros : public ValuePiece {
   Zeros(int nbits) : ValuePiece(0, nbits) {}
   
   biterator iterator() override {
     return biterator(0, 1);
   }
+};
+
+struct TZeros : public Zeros {
+  using Zeros::Zeros;
+
+  gword_t get_instruction_size() const override { return 16; }
 };
 
 struct Ones : public ValuePiece {
@@ -211,11 +249,17 @@ struct Ones : public ValuePiece {
   
 };
 
+struct TOnes : public Ones {
+  using Ones::Ones;
+
+  gword_t get_instruction_size() const override { return 16; }
+};
+
 struct CondPiece : public InsPiece {
   CondPiece() : InsPiece(4) {}
 
   bool advance(vector<DecodedPiece> &pieces, gword_t &instruction, gword_t &bits_consumed) override {
-    if (bits_consumed + 4 > INS_SIZE)
+    if (bits_consumed + 4 > get_instruction_size())
       return false;
 
     gword_t bits = instruction & 0xF;
@@ -249,6 +293,7 @@ struct CondPiece : public InsPiece {
 
 struct InstructionDefinition {
   static inline unordered_map<string, vector<const InstructionDefinition *>> DEFINITION_MAP;
+  static inline unordered_map<string, vector<const InstructionDefinition *>> THUMB_DEFINITION_MAP;
 
   vector<InsPiece *> pieces;
 
@@ -262,6 +307,8 @@ struct InstructionDefinition {
     for (size_t i = 0; i < pieces.size(); i++)
       delete pieces[i];
   }
+
+  virtual gword_t get_instruction_size() const { return 32; }
 
   void print_definition() const {
     vector<int> sizes;
@@ -303,8 +350,6 @@ struct InstructionDefinition {
       std::cout << std::format("| {:^{}} ", bits, sizes[i]);
     }
     std::cout << "|\n";
-
-
   }
 
   vector<DecodedPiece> validate(gword_t instruction) const {
@@ -319,7 +364,7 @@ struct InstructionDefinition {
     }
     
     // Invalid definition probably
-    if (bits_consumed != INS_SIZE)
+    if (bits_consumed != get_instruction_size())
       return decoded_pieces;
 
     return decoded_pieces;
@@ -398,6 +443,12 @@ struct InstructionDefinition {
     return iterator(*this);
   }
 
+};
+
+struct TInstructionDefinition : public InstructionDefinition {
+  using InstructionDefinition::InstructionDefinition;
+
+  gword_t get_instruction_size() const override { return 16; }
 };
 
 bool validate_instruction(const vector<InstructionDefinition> &definitions, gword_t instruction) {

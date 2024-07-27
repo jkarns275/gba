@@ -95,6 +95,14 @@ struct LoadStore : public Ins {
     assert(!(integral_type == BYTE && !s));
   }
 
+  LoadStore(gword_t instruction, bool p, bool u, bool w, bool l, bool s, byte irn, byte ird, 
+            IntegralType integral_type, OffsetType offset_type, byte operand)
+    : Ins(instruction),
+      p(p), u(u), w(w), l(l), s(s),
+      irn(irn), ird(ird),
+      integral_type(integral_type), offset_type(offset_type), operand(operand) {}
+
+
   static constexpr gword_t switch_pair(OffsetType offset_type, gword_t p) {
     return (gword_t) offset_type | (p << 1);
   }
@@ -157,11 +165,8 @@ struct LoadStore : public Ins {
       }
 
       case switch_pair(WORD, false):
-        rd = state.at(address);
-        break;
-
       case switch_pair(WORD, true):
-        rd = (signed_gword_t) state.signed_at(address);
+        rd = state.at(address);
         break;
 
       // Not implemented since these isntructions dont exist in arm7tdmi
@@ -316,21 +321,21 @@ struct LoadStoreOffset : public Ins {
   bool register_offset;
   bool pre_indexed_or_offset;
   bool add_offset; 
-  bool load;
   bool w;
+  bool load;
 
   byte irn, ird;
 
   variant<gword_t, ImmShiftOperand> operand;
-  enum { BYTE = 1, WORD = 0} data_type;
+  enum DataType { BYTE = 1, WORD = 0} data_type;
 
   LoadStoreOffset(gword_t instruction) 
     : Ins(instruction), 
       register_offset(instruction & MASK_I),
       pre_indexed_or_offset(instruction & MASK_P),
       add_offset(instruction & MASK_U),
-      load(instruction & MASK_L),
       w(instruction & MASK_W),
+      load(instruction & MASK_L),
       irn(nibbles[4]),
       ird(nibbles[3]),
       data_type(instruction & MASK_B ? BYTE : WORD) {
@@ -341,6 +346,10 @@ struct LoadStoreOffset : public Ins {
     }
   }
 
+  LoadStoreOffset(gword_t instruction, bool i, bool p, bool u, bool w, bool l, byte irn, byte ird, DataType data_type, variant<gword_t, ImmShiftOperand> operand)
+    : Ins(instruction),
+      register_offset(i), pre_indexed_or_offset(p), add_offset(u), w(w), load(l), irn(irn), ird(ird), data_type(data_type), operand(operand) {}
+
   static constexpr gword_t switch_pair(bool p, bool w) {
     return (p ? 1 : 0) | (w ? 2 : 0);
   }
@@ -349,9 +358,16 @@ struct LoadStoreOffset : public Ins {
     gword_t &rn = state.get_register(irn);
     signed_gword_t sign = add_offset ? 1 : -1;
     gword_t addr = rn;
-
-    if (irn == 15)
-      addr += 8;   
+    
+    if (irn == 15) {
+      // Definition of PC is slightly different in THUMB mode
+      if (state.get_flag(CpuState::T_FLAG)) {
+        addr &= 0xFFFFFFFC;
+        addr <<= 2;
+      } else {
+        addr += 8;   
+      }
+    }
     
     signed_gword_t offset = register_offset ? std::get<ImmShiftOperand>(operand).evaluate(state).value : std::get<gword_t>(operand);
     
@@ -433,6 +449,9 @@ struct LoadStoreMultiple : public Ins {
       l(instruction & MASK_L),
       irn(nibbles[4]),
       register_list(instruction & 0xFFFF) { }
+
+  LoadStoreMultiple(gword_t instruction, bool p, bool u, bool s, bool w, bool l, byte irn, gshort_t register_list)
+    : Ins(instruction), p(p), u(u), s(s), w(w), l(l), irn(irn), register_list(register_list) {}
 
   inline std::pair<gword_t, gword_t> get_address(CpuState &state) {
     gword_t rn = state.get_register(irn);
