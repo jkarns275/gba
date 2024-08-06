@@ -16,10 +16,10 @@ static constexpr gword_t GWORD_T_SIGN_BIT = ror<gword_t>(1, 1);
 export {
   ;
 
-
 struct CheckedResult {
   gword_t value, carry, overflow;
 
+  // TODO: This can probably be made more efficient.
   static CheckedResult add(gword_t x, gword_t y) {
     gword_t result = x + y;
     gword_t carry = result < x;
@@ -122,7 +122,8 @@ struct DataProcessing : public Ins {
     );
 
     gword_t op = operand.value;
-    gword_t carry = cpu_state.get_flag(CpuState::C_FLAG);
+    gword_t carry = operand.carry;
+    gword_t carry_flag = bool(cpu_state.get_flag(CpuState::C_FLAG));
 
     gword_t &rd = cpu_state.get_register(ird);
     gword_t rn = cpu_state.get_register(irn);
@@ -131,7 +132,7 @@ struct DataProcessing : public Ins {
 
     gword_t cond_code_mask = Z_FLAG | N_FLAG;
     gword_t overflow = 0;
-    
+   
     switch (opcode) {
       case AND:
         rd = rn & op;
@@ -177,7 +178,7 @@ struct DataProcessing : public Ins {
       
       case ADC: {
         CheckedResult r0 = CheckedResult::add(rn, op);
-        CheckedResult r1 = CheckedResult::add(r0.value, carry);
+        CheckedResult r1 = CheckedResult::add(r0.value, carry_flag);
         rd = r1.value;
         test = rd;
         carry = r1.carry | r0.carry;
@@ -188,7 +189,7 @@ struct DataProcessing : public Ins {
       
       case SBC: {
         CheckedResult r0 = CheckedResult::sub(rn, op);
-        CheckedResult r1 = CheckedResult::sub(r0.value, carry ^ 1);
+        CheckedResult r1 = CheckedResult::sub(r0.value, carry_flag ^ 1);
         rd = r1.value;
         test = rd;
         carry = !(r1.carry | r0.carry);
@@ -199,7 +200,7 @@ struct DataProcessing : public Ins {
       
       case RSC: {
         CheckedResult r0 = CheckedResult::sub(op, rn);
-        CheckedResult r1 = CheckedResult::sub(r0.value, carry == 0);
+        CheckedResult r1 = CheckedResult::sub(r0.value, carry_flag == 0);
         rd = r1.value;
         test = rd;
         carry = !(r1.carry | r0.carry);
@@ -217,18 +218,19 @@ struct DataProcessing : public Ins {
       case MOV:
         rd = op;
         test = rd;
-        cond_code_mask |= C_FLAG | N_FLAG;
+        cond_code_mask |= C_FLAG ;
         break;
       
       case BIC:
         rd = rn & ~op;
-        cond_code_mask |= N_FLAG | C_FLAG;
+        test = rd;
+        cond_code_mask |= C_FLAG;
         break;
       
       case MVN:
         rd = ~op;
         test = rd;
-        cond_code_mask |= C_FLAG | N_FLAG;
+        cond_code_mask |= C_FLAG;
         break;
 
       case TST:

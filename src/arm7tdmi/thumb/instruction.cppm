@@ -9,7 +9,7 @@ import arm7tdmi.arm;
 
 using std::variant;
 
-typedef DataProcessing::Opcode Opcode;
+export typedef DataProcessing::Opcode Opcode;
 
 constexpr byte thumb_reg(gshort_t ins, byte start) {
   return (ins >> start) & 0x7;
@@ -25,12 +25,13 @@ static constexpr gshort_t LOAD_MASK = flag_mask(11);
 export {
   ;
 
+
 // ASR (1)
 // LSL (1)
 // LSR (1)
 // 0b000_____________
 struct TShiftImm : public DataProcessing {
-  static const InstructionDefinition *definition = new TInstructionDefinition({
+  static inline const InstructionDefinition *definition = new TInstructionDefinition({
     new TZeros(3), new TIntegralPiece(2, "opcode", 0, 3), new TIntegralPiece(5, "imm5"), new TRegPiece("Rm"), new TRegPiece("Rd")
   });
 
@@ -48,8 +49,8 @@ struct TShiftImm : public DataProcessing {
 // SUB (3)
 // 0b000110__________
 struct TAddSubReg : public DataProcessing {
-  static const InstructionDefinition *definition = new TInstructionDefinition({
-    new TZeros(3), new TValuePiece(0b110, 3), new TBoolPiece("opc"), new TRegPiece("Rm"), new TRegPiece("Rn"), new TRegPiece("Rd")
+  static inline const InstructionDefinition *definition = new TInstructionDefinition({
+    new TZeros(3), new TValuePiece(0b110, 3), new TBoolPiece("opcode"), new TRegPiece("Rm"), new TRegPiece("Rn"), new TRegPiece("Rd")
   });
 
   TAddSubReg(gshort_t instruction)
@@ -59,7 +60,7 @@ struct TAddSubReg : public DataProcessing {
         true,
         thumb_reg(instruction, 3),
         thumb_reg(instruction, 0),
-        ImmShiftOperand(0, thumb_reg(instruction, 6), BitShift::LEFT)
+        ThumbOperand(thumb_reg(instruction, 6))
       ) {}
 };
 
@@ -68,8 +69,8 @@ struct TAddSubReg : public DataProcessing {
 // SUB (1)
 // 0b000111_________
 struct TAddSubImm : public DataProcessing {
-  static const InstructionDefinition *definition = new TInstructionDefinition({
-    new TZeros(3), new TValuePiece(0b111, 3), new TBoolPiece("opc"), new TIntegralPiece(3, "imm3"), new TRegPiece("Rn"), new TRegPiece("Rd")
+  static inline const InstructionDefinition *definition = new TInstructionDefinition({
+    new TValuePiece(0b000111, 6), new TBoolPiece("opcode"), new TIntegralPiece(3, "imm3"), new TRegPiece("Rn"), new TRegPiece("Rd")
   });
 
   TAddSubImm(gshort_t instruction)
@@ -89,7 +90,7 @@ struct TAddSubImm : public DataProcessing {
 // SUB (2)
 // 0b001_____________
 struct TDataProcessingImm : public DataProcessing {
-  static const InstructionDefinition *definition = new TInstructionDefinition({
+  static inline const InstructionDefinition *definition = new TInstructionDefinition({
     new TValuePiece(0b001, 3), new TIntegralPiece(2, "opcode"), new TRegPiece("R"), new TIntegralPiece(8, "imm8")
   });
 
@@ -130,7 +131,7 @@ struct TDataProcessingImm : public DataProcessing {
 // except
 // 0b0100001101
 struct TDataProcessing : public DataProcessing {
-  static const InstructionDefinition *definition = new TInstructionDefinition({
+  static inline const InstructionDefinition *definition = new TInstructionDefinition({
     new TValuePiece(0b010000, 6), new TIntegralPiece(4, "opcode"), new TRegPiece("Rm/Rs"), new TRegPiece("Rd/Rn")
   });
 
@@ -139,9 +140,9 @@ struct TDataProcessing : public DataProcessing {
         instruction,
         (Opcode) ((instruction >> 6) & 0xF),
         true,
-        0,
         thumb_reg(instruction, 0),
-        ThumbOperand(instruction)
+        thumb_reg(instruction, 0),
+        ThumbOperand(thumb_reg(instruction, 3))
       ) {
     // Opcodes that don't line up w/ the DataProcessing::Opcode enum
     byte ir = thumb_reg(instruction, 3);
@@ -169,6 +170,7 @@ struct TDataProcessing : public DataProcessing {
     if (shift_type != 0xFF) {
       assert(shift_type < 4);
       operand = RegShiftOperand(ir, ird, (BitShift) shift_type);
+      opcode = Opcode::MOV;
     }
   }
 };
@@ -176,13 +178,13 @@ struct TDataProcessing : public DataProcessing {
 // MUL
 // 0b0100001101______
 struct TMul : public MulShort {
-  static const InstructionDefinition *definition = new TInstructionDefinition({
-    new TValuePiece(0b0100001101, 10), new TRegPiece("Rm/Rs"), new TRegPiece("Rd/Rn")
+  static inline const InstructionDefinition *definition = new TInstructionDefinition({
+    new TValuePiece(0b0100001101, 10), new TRegPiece("Rm"), new TRegPiece("Rd")
   });
 
   TMul(gshort_t instruction)
     : MulShort(
-        instruction, false, true, thumb_reg(instruction, 0), 0, this->ird, thumb_reg(instruction, 3)
+        instruction, false, true, thumb_reg(instruction, 0), 0, thumb_reg(instruction, 0), thumb_reg(instruction, 3)
       ) {}
 };
 
@@ -191,8 +193,8 @@ struct TMul : public MulShort {
 // ADD (4)
 // 0b010001__________
 struct TDataProcessingHiReg : public DataProcessing {
-  static const InstructionDefinition *definition = new TInstructionDefinition({
-    new TValuePiece(0b010001, 6), new TIntegralPiece("opcode", 0, 0b11), new TBoolPiece("H1"), new TBoolPiece("H2"), new TRegPiece("Rm"), new TRegPiece("Rd/Rn")
+  static inline const InstructionDefinition *definition = new TInstructionDefinition({
+    new TValuePiece(0b010001, 6), new TIntegralPiece(2,"opcode", 0b11), new TBoolPiece("H1"), new TBoolPiece("H2"), new TRegPiece("Rm"), new TRegPiece("Rd/Rn")
   });
 
   static constexpr Opcode OPCODE_MAP[4] = {
@@ -205,10 +207,10 @@ struct TDataProcessingHiReg : public DataProcessing {
     : DataProcessing(
         instruction,
         OPCODE_MAP[(instruction >> 8) & 0b11],
-        true,
-        (instruction & 0x7) + ((instruction >> 4) & 0x8),
-        0,
-        ThumbOperand((byte) (((instruction >> 3) & 0x7) + ((instruction >> 3) & 0x8)))
+        false,
+        (instruction & 0x7) | ((instruction >> 4) & 0x8),
+        (instruction & 0x7) | ((instruction >> 4) & 0x8),
+        ThumbOperand((byte) ((instruction >> 3) & 0xF))
       ) {
       assert(((instruction >> 8) & 0b11) < 3);
     }
@@ -220,7 +222,7 @@ struct TDataProcessingHiReg : public DataProcessing {
 // BX
 // 0b01000111________
 struct TBranchExchange : public BranchExchange {
-  static const InstructionDefinition *definition = new TInstructionDefinition({
+  static inline const InstructionDefinition *definition = new TInstructionDefinition({
     new TValuePiece(0b010001, 6), new TValuePiece(0b11, 2), new TBoolPiece("L"), new TBoolPiece("H2"), new TRegPiece("Rm"), new TZeros(3)
   });
   
@@ -237,7 +239,7 @@ struct TBranchExchange : public BranchExchange {
 // THUMB LDR (3)
 // 0b01001___________
 struct TLiteralPoolLoad : public LoadStoreOffset {
-  static const InstructionDefinition *definition = new TInstructionDefinition({
+  static inline const InstructionDefinition *definition = new TInstructionDefinition({
     new TValuePiece(0b01001, 5), new TRegPiece("Rd"), new TIntegralPiece(8, "offset")
   });
 
@@ -255,7 +257,7 @@ struct TLiteralPoolLoad : public LoadStoreOffset {
 // 0b0101____________
 struct TLoadStoreReg : public LoadStoreOffset {
   // TODO: Need to combine a few other isntructions w/ this
-  static const InstructionDefinition *definition = new TInstructionDefinition({
+  static inline const InstructionDefinition *definition = new TInstructionDefinition({
     new TValuePiece(0b0101, 4), new TIntegralPiece(3, "opcode"), new TRegPiece("Rm"), new TRegPiece("Rn"), new TRegPiece("Rd")
   }); 
 
@@ -288,7 +290,7 @@ struct TLoadSigned : public LoadStore {
 // STR (1)
 // 0b0110____________
 struct TLoadStoreImm5 : public LoadStoreOffset {
-  static const InstructionDefinition *definition = new TInstructionDefinition({
+  static inline const InstructionDefinition *definition = new TInstructionDefinition({
     new TValuePiece(0b011, 3), new TBoolPiece("B"), new TBoolPiece("L"), new TIntegralPiece(5, "offset"), new TRegPiece("Rn"), new TRegPiece("Rd")
   });
 
@@ -305,7 +307,7 @@ struct TLoadStoreImm5 : public LoadStoreOffset {
 // 0b0111____________
 // TODO: Combine w/ TLoadStoreImm5
 struct TLoadStoreByteImm5 : public LoadStoreOffset {
-  static const InstructionDefinition *definition = new TInstructionDefinition({
+  static inline const InstructionDefinition *definition = new TInstructionDefinition({
     new TValuePiece(0b011, 3), new TBoolPiece("B"), new TBoolPiece("L"), new TIntegralPiece(5, "offset"), new TRegPiece("Rn"), new TRegPiece("Rd")
   });
 
@@ -324,7 +326,7 @@ struct TLoadStoreByteImm5 : public LoadStoreOffset {
 // STRH (2)
 // 0b1000____________
 struct TLoadStoreShort : public LoadStore {
-  static const InstructionDefinition *definition = new TInstructionDefinition({
+  static inline const InstructionDefinition *definition = new TInstructionDefinition({
     new TValuePiece(0b1000, 4), new TBoolPiece("L"), new TIntegralPiece(5, "offset"), new TRegPiece("Rn"), new TRegPiece("Rd")
   });
 

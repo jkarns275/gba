@@ -67,6 +67,11 @@ inline constexpr itype lsr(itype x, itype by) noexcept {
   return x >> by;
 }
 
+template <Integral itype>
+inline constexpr itype lsl(itype x, itype by) noexcept {
+  return x << by;
+}
+
 template <SignedIntegral itype>
 inline constexpr itype asr(itype x, itype by) noexcept {
   return x >> by;

@@ -163,8 +163,8 @@ struct IntegralPiece : public NamedInsPiece {
   }
 };
 
-struct TIntegralPiece : public NamedInsPiece {
-  using NamedInsPiece::NamedInsPiece;
+struct TIntegralPiece : public IntegralPiece {
+  using IntegralPiece::IntegralPiece;
 
   gword_t get_instruction_size() const override { return 16; }
 };

@@ -90,7 +90,8 @@ struct ArmInstructionTestWithFlags : public ArmInstructionTest<I> {
   ArmInstructionTestWithFlags(gword_t input_flags, gword_t output_flags)
     : ArmInstructionTest<I>(),
       input_flags(input_flags),
-      output_flags(output_flags) { }
+      output_flags(output_flags) {
+  }
 
   void prepare_state(CpuState &state) override {
     ArmInstructionTest<I>::prepare_state(state);

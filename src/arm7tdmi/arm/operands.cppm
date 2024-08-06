@@ -51,8 +51,6 @@ struct ThumbOperand : public ShifterOperand {
 
   ThumbOperand(byte irm) : irm(irm) { }
 
-  ThumbOperand(gshort_t instruction) : irm((instruction >> 3) & 0b11) {}
-
   ShifterOperandValue evaluate(CpuState &state) override {
     return { state.get_register(irm), 0 };
   }
@@ -78,7 +76,6 @@ struct ImmShiftOperand : public ShifterOperand {
   ShifterOperandValue evaluate(CpuState &state) override {
     constexpr gword_t MASK = flag_mask(31);
     gword_t reg = state.get_register(irm);
-
 
     if (irm == 0xF)
       reg += 8;
@@ -206,8 +203,8 @@ struct RegShiftOperand : public ShifterOperand {
           value = asr<signed_gword_t>(rm, shift);
           carry = flag_mask(shift - 1) & rm;
         } else {
-          carry = flag_mask(31) & rm;
-          if (flag_mask(31) & rm) {
+          carry = 0x80000000 & rm;
+          if (carry) {
             value = -1;
           } else {
             value = 0;
