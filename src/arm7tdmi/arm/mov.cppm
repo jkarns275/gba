@@ -110,17 +110,17 @@ struct LoadStore : public Ins {
   gword_t get_address(CpuState &state) {
     const gword_t sign = u ? 1 : -1;
 
-    gword_t &rn = state.get_register(irn), 
+    gword_t rn = state.read_register(irn), 
             address;
 
     switch (switch_pair(offset_type, p)) {
       case switch_pair(REGISTER, false):
         address = rn;
-        rn += sign * state.get_register(operand);
+        rn += sign * state.read_register(operand);
         break;
       
       case switch_pair(REGISTER, true):
-        address = rn + (sign * state.get_register(operand));
+        address = rn + (sign * state.read_register(operand));
         rn = w ? address : rn;
         break;
 
@@ -134,6 +134,8 @@ struct LoadStore : public Ins {
         rn = w ? address : rn;
     }
 
+    state.write_register(irn, rn);
+
     return address;
   }
 
@@ -142,7 +144,7 @@ struct LoadStore : public Ins {
   }
 
   void load(CpuState &state) {
-    gword_t &rd = state.get_register(ird);
+    gword_t rd;
     gword_t address = get_address(state);
 
     switch (switch_pair(integral_type, s)) {
@@ -169,18 +171,19 @@ struct LoadStore : public Ins {
         rd = state.at(address);
         break;
 
-      // Not implemented since these isntructions dont exist in arm7tdmi
+      // Not implemented since these instructions dont exist in arm7tdmi
       case switch_pair(LONG, false):
       case switch_pair(LONG, true):
       // This should not happen - when H and S flags are 0 it is actually a multiply instruction.
       case switch_pair(BYTE, false):
         __builtin_unreachable();
     }
-
+  
+    state.write_register(ird, rd);
   }
 
   void store(CpuState &state) {
-    gword_t rd = state.get_register(ird);
+    gword_t rd = state.read_register(ird);
     gword_t address = get_address(state);
 
     switch (switch_pair(integral_type, s)) {
@@ -225,12 +228,13 @@ struct MovStatusToReg : public Ins {
       ird(nibbles[3]) { }
 
   void execute(CpuState &state) override {
-    gword_t &rd = state.get_register(ird);
+    gword_t rd;
     if (r) {
-      rd = state.get_spsr();
+      rd = state.read_spsr();
     } else {
-      rd = state.get_cpsr();
+      rd = state.read_cpsr();
     }
+    state.write_register(ird, rd);
   }
 };
 
@@ -272,7 +276,7 @@ struct MovToStatus : public Ins {
     gword_t operand;
 
     if (std::holds_alternative<byte>(this->operand)) {
-      operand = state.get_register(std::get<byte>(this->operand));
+      operand = state.read_register(std::get<byte>(this->operand));
     } else {
       ShifterOperandValue value = std::get<RotateOperand>(this->operand).evaluate(state);
       operand = value.value;
@@ -282,7 +286,7 @@ struct MovToStatus : public Ins {
     if (!r && !mode_has_spsr(mode))
       return;
 
-    gword_t &psr = r ? state.get_cpsr() : state.get_spsr();
+    gword_t psr = r ? state.read_cpsr() : state.read_spsr();
     gword_t mask = 0;
 
     if ((r && mode_is_privileged(mode)) || !r) {
@@ -294,6 +298,11 @@ struct MovToStatus : public Ins {
     mask |= field_mask & 0b1000 ? 0xFF000000 : 0;
 
     psr = (mask & operand) | (~mask & psr);
+
+    if (r)
+      state.write_cpsr(psr);
+    else
+      state.write_spsr(psr);
   }
 };
 
@@ -348,14 +357,14 @@ struct LoadStoreOffset : public Ins {
 
   LoadStoreOffset(gword_t instruction, bool i, bool p, bool u, bool w, bool l, byte irn, byte ird, DataType data_type, variant<gword_t, ImmShiftOperand> operand)
     : Ins(instruction),
-      register_offset(i), pre_indexed_or_offset(p), add_offset(u), w(w), load(l), irn(irn), ird(ird), data_type(data_type), operand(operand) {}
+      register_offset(i), pre_indexed_or_offset(p), add_offset(u), w(w), load(l), irn(irn), ird(ird), operand(operand), data_type(data_type) {}
 
   static constexpr gword_t switch_pair(bool p, bool w) {
     return (p ? 1 : 0) | (w ? 2 : 0);
   }
 
   gword_t get_address(CpuState &state) {
-    gword_t &rn = state.get_register(irn);
+    gword_t rn = state.read_register(irn);
     signed_gword_t sign = add_offset ? 1 : -1;
     gword_t addr = rn;
     
@@ -363,7 +372,7 @@ struct LoadStoreOffset : public Ins {
       // Definition of PC is slightly different in THUMB mode
       if (state.get_flag(CpuState::T_FLAG)) {
         addr &= 0xFFFFFFFC;
-        addr <<= 2;
+        addr += 4;
       } else {
         addr += 8;   
       }
@@ -387,12 +396,14 @@ struct LoadStoreOffset : public Ins {
         break;
     }
 
+    state.write_register(irn, rn);
+
     return addr;
   }
 
   void execute(CpuState &state) override {
+    gword_t rd = state.read_register(ird);
     gword_t addr = get_address(state);
-    gword_t &rd = state.get_register(ird);
     
     if (load) {
       Mode mode = Mode::USR;
@@ -418,7 +429,8 @@ struct LoadStoreOffset : public Ins {
           break;
       }
     }
-    
+
+    state.write_register(ird, rd);
   }
 };
 
@@ -454,7 +466,7 @@ struct LoadStoreMultiple : public Ins {
     : Ins(instruction), p(p), u(u), s(s), w(w), l(l), irn(irn), register_list(register_list) {}
 
   inline std::pair<gword_t, gword_t> get_address(CpuState &state) {
-    gword_t rn = state.get_register(irn);
+    gword_t rn = state.read_register(irn);
     gword_t register_width = count_ones(register_list) * 4;
     gword_t start = rn;
 
@@ -473,16 +485,16 @@ struct LoadStoreMultiple : public Ins {
 
       for (int i = 0; i < 15; i++) {
         if ((1 << i) & register_list) {
-          state.get_register(i, mode) = state.at(address);
+          state.write_register(i, state.at(address), mode);
           address += 4;
         }
       }
 
       if (register_list & MASK_PC) {
         if (s)
-          state.get_cpsr() = state.get_spsr();
+          state.write_cpsr(state.read_spsr());
 
-        state.get_pc() = state.at(address) & MASK_PC_ASSIGNMENT;
+        state.write_pc(state.at(address) & MASK_PC_ASSIGNMENT);
         address += 4;
       }
 
@@ -491,13 +503,13 @@ struct LoadStoreMultiple : public Ins {
 
       for (int i = 0; i < 16; i++) {
         if ((1 << i) & register_list) {
-          state.at(address) = state.get_register(i, mode);
+          state.at(address) = state.read_register(i, mode);
           address += 4;
         }
       }
     }
     
-    state.get_register(irn) = rn_new;
+    state.write_register(irn, rn_new);
   }
 };
 

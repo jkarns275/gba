@@ -10,6 +10,7 @@ target_sources(arm7tdmi_lib
     FILE_SET cxx_modules TYPE CXX_MODULES FILES
     ${SRCS}
 )
+target_link_libraries(arm7tdmi_lib PRIVATE spdlog::spdlog)
 
 add_executable(main)
 target_sources(main

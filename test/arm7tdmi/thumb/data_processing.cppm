@@ -29,7 +29,7 @@ struct TDataProcessingTest : public ArmInstructionTestWithFlags<I> {
   }
 
   void check_requirements(CpuState &state) override {
-    REQUIRE(state.get_register(ird) == expected_value(state));
+    REQUIRE(state.read_register(ird) == expected_value(state));
     
     ArmInstructionTestWithFlags<I>::check_requirements(state);
   }
@@ -61,8 +61,8 @@ struct TAddSubRegTest : public TDataProcessingTest<TAddSubReg> {
     value_map["Rm"] = irm;
     value_map["Rn"] = irn;
 
-    state.get_register(irn) = rn;
-    state.get_register(irm) = rm;
+    state.write_register(irn, rn);
+    state.write_register(irm, rm);
   }
   
   gword_t expected_value(CpuState &state) override {
@@ -92,7 +92,7 @@ struct TAddSubImmTest : public TDataProcessingTest<TAddSubImm> {
     value_map["opcode"] = opcode;
     value_map["Rn"] = irn;
 
-    state.get_register(irn) = rn;
+    state.write_register(irn, rn);
   }
 
   gword_t expected_value(CpuState &state) override {
@@ -243,12 +243,12 @@ struct TDataProcessingImmTest : public TDataProcessingTest<TDataProcessingImm> {
     value_map["imm8"] = imm;
     value_map["opcode"] = opcode;
 
-    state.get_register(ir) = r;
+    state.write_register(ir, r);
   }
   
   void check_requirements(CpuState &state) override {
     if (opcode != ImmOpcode::IMM_CMP) {
-        REQUIRE(state.get_register(ir) == expected_value(state));
+        REQUIRE(state.read_register(ir) == expected_value(state));
     }
     
     ArmInstructionTestWithFlags<TDataProcessingImm>::check_requirements(state);
@@ -378,8 +378,8 @@ struct TDataProcessingRegTest : public TDataProcessingTest<TDataProcessing> {
     value_map["opcode"] = opcode;
     value_map["Rd/Rn"] = irdn;
 
-    state.get_register(irms) = rms;
-    state.get_register(irdn) = rdn;
+    state.write_register(irms, rms);
+    state.write_register(irdn, rdn);
   }
   
   void check_requirements(CpuState &state) override {
@@ -388,7 +388,7 @@ struct TDataProcessingRegTest : public TDataProcessingTest<TDataProcessing> {
         __builtin_unreachable();
         assert(false);
       default:
-        REQUIRE(state.get_register(irdn) == expected_value(state));
+        REQUIRE(state.read_register(irdn) == expected_value(state));
       case Opcode::TST:
       case Opcode::CMP:
       case Opcode::CMN:
@@ -852,12 +852,12 @@ struct TMulTest : public ArmInstructionTestWithFlags<TMul> {
     this->value_map["Rd"] = ird;
     this->value_map["Rm"] = irm;
 
-    state.get_register(ird) = rd;
-    state.get_register(irm) = rm;
+    state.write_register(ird, rd);
+    state.write_register(irm, rm);
   }
 
   void check_requirements(CpuState &state) override {
-    REQUIRE(state.get_register(ird) == expected_value(state));
+    REQUIRE(state.read_register(ird) == expected_value(state));
     
     ArmInstructionTestWithFlags<TMul>::check_requirements(state);
   }
@@ -919,13 +919,13 @@ struct TDataProcessingHiRegTest : public TDataProcessingTest<TDataProcessingHiRe
     value_map["H2"] = bool(irm & 0x8);
     value_map["Rm"] = irm;
 
-    state.get_register(irdn) = rdn;
-    state.get_register(irm) = rm;
+    state.write_register(irdn, rdn);
+    state.write_register(irm, rm);
   }
   
   void check_requirements(CpuState &state) override {
     if (opcode != HiRegOpcode::HI_CMP) {
-      REQUIRE(state.get_register(irdn) == expected_value(state));
+      REQUIRE(state.read_register(irdn) == expected_value(state));
     }
     
     ArmInstructionTestWithFlags<TDataProcessingHiReg>::check_requirements(state);
@@ -935,6 +935,7 @@ struct TDataProcessingHiRegTest : public TDataProcessingTest<TDataProcessingHiRe
     switch ((HiRegOpcode) opcode) {
       case HiRegOpcode::HI_ADD: return rdn + rm;
       case HiRegOpcode::HI_MOV: return rm;
+      default:
     }
     return 0;
   }

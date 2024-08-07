@@ -38,7 +38,7 @@ struct TShiftImmTest : public ArmInstructionTestWithFlags<TShiftImm> {
     value_map["opcode"] = opcode;
     value_map["imm5"] = imm;
 
-    state.get_register(irm) = rm;
+    state.write_register(irm, rm);
     
     ShifterOperandValue op = ImmShiftOperand(imm, irm, (BitShift) opcode).evaluate(state);
 
@@ -52,7 +52,7 @@ struct TShiftImmTest : public ArmInstructionTestWithFlags<TShiftImm> {
   }
 
   void check_requirements(CpuState &state) override {
-    REQUIRE(state.get_register(ird) == expected_value(state).value);
+    REQUIRE(state.read_register(ird) == expected_value(state).value);
 
     ArmInstructionTestWithFlags<TShiftImm>::check_requirements(state);
   }

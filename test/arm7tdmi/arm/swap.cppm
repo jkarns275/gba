@@ -30,8 +30,8 @@ struct SingleDataSwapTest : public ArmInstructionTest<SingleDataSwap> {
   void prepare_state(CpuState &state) override {
     ArmInstructionTest<SingleDataSwap>::prepare_state(state);
 
-    state.get_register(irn) = rn;
-    state.get_register(irm) = rm;
+    state.write_register(irn, rn);
+    state.write_register(irm, rm);
 
     if (b) {
       state.byte_at(rn) = value;
@@ -47,11 +47,11 @@ struct SingleDataSwapTest : public ArmInstructionTest<SingleDataSwap> {
 
   void check_requirements(CpuState &state) override {
     if (b) {
-      REQUIRE(state.get_register(ird) == (value & 0xFF));
+      REQUIRE(state.read_register(ird) == (value & 0xFF));
       REQUIRE(state.byte_at(rn) == (rm & 0xFF));
     } else {
       gword_t target_data = ror<gword_t>(value, (rn & 0b11) * 8);
-      REQUIRE(state.get_register(ird) == target_data);
+      REQUIRE(state.read_register(ird) == target_data);
       REQUIRE(state.at(rn) == rm);
     }
   }

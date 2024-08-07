@@ -1,5 +1,7 @@
 module;
 #include <iostream>
+#include <spdlog/spdlog.h>
+
 export module arm7tdmi.arm.branch;
 
 import arm7tdmi.instruction;
@@ -29,17 +31,21 @@ struct BranchExchange : public Ins {
       irm(irm) {}
 
   void execute(CpuState &state) override {
-    if (set_lr)
-      state.get_lr() = state.get_pc() + 4;
-    
-    gword_t rm = state.get_register(irm);
-    
-    if (rm & MASK_T)
-      state.get_cpsr() |= CpuState::T_FLAG;
-    else
-      state.get_cpsr() &= ~CpuState::T_FLAG;
+    if (set_lr) {
+      if (state.is_thumb_mode())
+        state.write_lr(state.read_current_pc() + 2);
+      else
+        state.write_lr(state.read_current_pc() + 4);
+    }
 
-    state.get_pc() = rm & ~MASK_T;
+    gword_t rm = state.read_register(irm);
+
+    state.write_pc(rm & ~1);
+    
+    if (rm & 1)
+      state.set_flag(CpuState::T_FLAG);
+    else
+      state.clear_flag(CpuState::T_FLAG);
   }
 };
 
@@ -77,13 +83,19 @@ struct BranchWithLink : public Ins {
 
   void execute(CpuState &state) override {
     if (exchange || l) {
-      state.get_lr() = state.get_pc() + 4;
+      gword_t lr = state.read_current_pc();
+      if (state.is_thumb_mode()) {
+        lr += 2;
+      } else {
+        lr += 4;
+      }
+      state.write_lr(lr);
     }
 
+    state.write_pc(state.read_pc() + offset);
+    
     if (exchange)
-      state.get_cpsr() |= CpuState::T_FLAG;
-
-    state.get_pc() = state.get_pc() + offset;
+      state.set_flag(CpuState::T_FLAG);
   }
 };
 

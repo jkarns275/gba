@@ -223,7 +223,7 @@ struct TDataProcessingHiReg : public DataProcessing {
 // 0b01000111________
 struct TBranchExchange : public BranchExchange {
   static inline const InstructionDefinition *definition = new TInstructionDefinition({
-    new TValuePiece(0b010001, 6), new TValuePiece(0b11, 2), new TBoolPiece("L"), new TBoolPiece("H2"), new TRegPiece("Rm"), new TZeros(3)
+    new TValuePiece(0b01000111, 8), new TBoolPiece("L"), new TBoolPiece("H2"), new TRegPiece("Rm"), new TZeros(3)
   });
   
   static constexpr gshort_t MASK_LR = flag_mask(7);
@@ -232,7 +232,7 @@ struct TBranchExchange : public BranchExchange {
   : BranchExchange(
       instruction,
       instruction & MASK_LR,
-      (instruction >> 4) & 0xF
+      (instruction >> 3) & 0xF
     ) {}
 };
 
@@ -367,10 +367,9 @@ struct TAddWithPC : public Ins {
   TAddWithPC(gshort_t instruction)
     : Ins(instruction), ird(thumb_reg(instruction, 8)), imm(instruction & 0xFF) {}
 
-  void execute(CpuState &cpu_state) override {
-    gword_t &rd = cpu_state.get_register(ird);
-    gword_t pc = cpu_state.get_pc() & 0xFFFFFFFC;
-    rd = pc + (imm << 2);
+  void execute(CpuState &state) override {
+    gword_t pc = state.read_pc() & 0xFFFFFFFC;
+    state.write_register(ird, pc + (imm << 2));
   }
 };
 
@@ -433,7 +432,7 @@ struct TConditionalBranch : public Ins {
 
   void execute(CpuState &state) override {
     if (state.evaluate_cond(cond)) {
-      state.get_pc() += word << 1;
+      state.write_pc(state.read_pc() + (word << 1));
     }
   }
 };
@@ -478,25 +477,25 @@ struct TBranchWithLink : public Ins {
   }
 
   void execute(CpuState &state) override {
-    gword_t pc = state.get_pc();
+    gword_t pc = state.read_pc();
     switch (opcode) {
       case UNCOND:
-        state.get_pc() += ((signed_gword_t) offset << 1);
+        state.write_pc(state.read_pc() + ((signed_gword_t) offset << 1));
         break;
 
       case BRANCH_LINK_EXCHANGE:
-        state.get_pc() = (state.get_lr() + ((offset & MASK_OFFSET) << 1)) & 0xFFFFFFFC;
-        state.get_lr() = (pc + 2) | 1;
+        state.write_pc((state.read_lr() + ((offset & MASK_OFFSET) << 1)) & 0xFFFFFFFC);
+        state.write_lr((pc + 2) | 1);
         state.clear_flag(CpuState::T_FLAG);
         break;
 
       case LINK:
-        state.get_lr() += pc + ((signed_gword_t) offset << 12);
+        state.write_lr(pc + ((signed_gword_t) offset << 12));
         break;
 
       case BRANCH_LINK:
-        state.get_pc() += state.get_lr() + ((offset & MASK_OFFSET));
-        state.get_lr() = (pc + 2) | 1;
+        state.write_pc(state.read_lr() + ((offset & MASK_OFFSET)));
+        state.write_lr((pc + 2) | 1);
         break;
     }
   }

@@ -44,9 +44,9 @@ struct MulShortTest : public ArmInstructionTestWithFlags<MulShort> {
     value_map["Rs"] = irs;
     value_map["Rm"] = irm;
 
-    state.get_register(irn) = rn;
-    state.get_register(irm) = rm;
-    state.get_register(irs) = rs;
+    state.write_register(irn, rn);
+    state.write_register(irm, rm);
+    state.write_register(irs, rs);
   }
 
   void check_requirements(CpuState &state) override {
@@ -54,7 +54,7 @@ struct MulShortTest : public ArmInstructionTestWithFlags<MulShort> {
     if (a)
       result += rn;
 
-    REQUIRE(state.get_register(ird) == result);
+    REQUIRE(state.read_register(ird) == result);
 
     if (s) {
       if (result == 0)
@@ -135,10 +135,10 @@ struct MulLongTest : public ArmInstructionTestWithFlags<MulLong> {
     value_map["Rs"] = irs;
     value_map["Rm"] = irm;
 
-    state.get_register(ird_msw) = rd_msw;
-    state.get_register(ird_lsw) = rd_lsw;
-    state.get_register(irm) = rm;
-    state.get_register(irs) = rs;
+    state.write_register(ird_msw, rd_msw);
+    state.write_register(ird_lsw, rd_lsw);
+    state.write_register(irm, rm);
+    state.write_register(irs, rs);
   }
 
   void check_requirements(CpuState &state) override {
@@ -160,8 +160,8 @@ struct MulLongTest : public ArmInstructionTestWithFlags<MulLong> {
     target_msw = (product >> 32);
     target_lsw = product & 0xFFFFFFFF;
 
-    REQUIRE(state.get_register(ird_msw) == target_msw);
-    REQUIRE(state.get_register(ird_lsw) == target_lsw);
+    REQUIRE(state.read_register(ird_msw) == target_msw);
+    REQUIRE(state.read_register(ird_lsw) == target_lsw);
 
     if (s) {
       if (product == 0)

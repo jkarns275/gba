@@ -35,13 +35,13 @@ struct SoftwareInterruptTest : public ArmInstructionTest<SoftwareInterrupt> {
   }
 
   void check_requirements(CpuState &state) override {
-    REQUIRE(state.get_spsr(Mode::SVC) == flags);
-    REQUIRE(state.get_register(14, Mode::SVC) == 4);
+    REQUIRE(state.read_spsr(Mode::SVC) == flags);
+    REQUIRE(state.read_register(14, Mode::SVC) == 4);
     REQUIRE(state.get_mode() == Mode::SVC);
-    REQUIRE(!(state.get_cpsr() & CpuState::T_FLAG));
-    REQUIRE(state.get_cpsr() & CpuState::F_FLAG);
-    REQUIRE(state.get_pc() == 0x08);
-    REQUIRE((state.get_cpsr() & 0xF8000000) == (0xF8000000 & flags));
+    REQUIRE(!(state.read_cpsr() & CpuState::T_FLAG));
+    REQUIRE(state.read_cpsr() & CpuState::F_FLAG);
+    REQUIRE(state.read_current_pc() == 0x08);
+    REQUIRE((state.read_cpsr() & 0xF8000000) == (0xF8000000 & flags));
   }
 };
 

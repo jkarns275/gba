@@ -28,13 +28,13 @@ struct SoftwareInterrupt : public Ins {
   SoftwareInterrupt(gword_t instruction, gword_t swi_number) : Ins(instruction), swi_number(swi_number) { }
 
   void execute(CpuState &state) override {
-    state.get_register(14, Mode::SVC) = state.get_pc() + 4;
-    state.get_spsr(Mode::SVC) = state.get_cpsr();
+    state.write_spsr(state.read_cpsr(), Mode::SVC);
     state.set_mode(Mode::SVC);
-    state.get_cpsr() &= ~CpuState::T_FLAG;
-    state.get_cpsr() |= CpuState::F_FLAG;
+    state.write_register(14, state.read_current_pc() + 4);
+    state.clear_flag(CpuState::T_FLAG);
+    state.set_flag(CpuState::F_FLAG);
 
-    state.get_pc() = 0x00000008;
+    state.write_pc(0x00000008);
   }
 };
 

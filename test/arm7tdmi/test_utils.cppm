@@ -35,14 +35,13 @@ struct Test : public InstructionTestFixture {
 
   void test() {
     SimpleMemory memory;
-    ArmCpuState arm_state(memory);
+    CpuState arm_state(memory);
     CpuState &state = arm_state;
 
     prepare_state(state, value_map);
     evaluate(state);
     check_requirements(state);
   }
-
 
   virtual void prepare_state(CpuState &state, unordered_map<string, gword_t> &value_map) = 0; 
 };
@@ -64,14 +63,12 @@ struct ArmInstructionTest : public Test {
   void evaluate(CpuState &state) override {
     const InstructionDefinition &def = get_definition();
     gword_t ins = def.build(value_map);
-    // std::cout <<  std::format("0x{:<8x}\n", ins);
     I(ins).execute(state);
   }
 
   virtual void test() {
     SimpleMemory memory;
-    ArmCpuState arm_state(memory);
-    CpuState &state = arm_state;
+    CpuState state(memory);
 
     // state.print_registers();
     prepare_state(state);
@@ -95,7 +92,7 @@ struct ArmInstructionTestWithFlags : public ArmInstructionTest<I> {
 
   void prepare_state(CpuState &state) override {
     ArmInstructionTest<I>::prepare_state(state);
-    state.get_cpsr() = input_flags;
+    state.write_cpsr(input_flags);
   }
 
   void check_requirements(CpuState &state) override {

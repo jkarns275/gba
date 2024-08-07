@@ -37,7 +37,7 @@ struct ImmShiftOperandTest : public Test {
   }
 
   void prepare_state(CpuState &state, unordered_map<string, gword_t> &value_map) override {
-    state.get_register(irm) = rm;
+    state.write_register(irm, rm);
     state.set_flag(flags);
   }
 };
@@ -61,8 +61,8 @@ struct RegShiftOperandTest : public Test {
   }
 
   void prepare_state(CpuState &state, unordered_map<string, gword_t> &value_map) override {
-    state.get_register(irm) = rm;
-    state.get_register(irs) = rs;
+    state.write_register(irm, rm);
+    state.write_register(irs, rs);
     state.set_flag(flags);
   }
 };

@@ -39,23 +39,24 @@ struct MulShort : public Ins {
       irm(irm) {}
 
   void execute(CpuState &state) override {
-    gword_t &rd = state.get_register(ird),
-            rn = state.get_register(irn),
-            rs = state.get_register(irs),
-            rm = state.get_register(irm);
+    gword_t rn = state.read_register(irn),
+            rs = state.read_register(irs),
+            rm = state.read_register(irm);
 
-    gword_t &cpsr = state.get_cpsr();
+    gword_t value;
 
     if (a) {
-      rd = rm * rs + rn;
+      value = rm * rs + rn;
     } else {
-      rd = rm * rs;
+      value = rm * rs;
     }
 
+    state.write_register(ird, value);
+
     if (s) {
-      cpsr |= CpuState::N_FLAG & rd;
-      if (rd == 0)
-        cpsr |= CpuState::Z_FLAG;
+      state.set_flag(CpuState::N_FLAG & value);
+      if (value == 0)
+        state.set_flag(CpuState::Z_FLAG);
     }
   }
 };
@@ -84,12 +85,10 @@ struct MulLong : public Ins {
       irm(nibbles[0]) { }
   
   void execute(CpuState &state) override {
-    gword_t &rd_lo  = state.get_register(ird_lsw),
-            &rd_hi  = state.get_register(ird_msw),
-            rs      = state.get_register(irs),
-            rm      = state.get_register(irm);
-
-    gword_t &cpsr = state.get_cpsr();
+    gword_t rd_lo   = state.read_register(ird_lsw),
+            rd_hi   = state.read_register(ird_msw),
+            rs      = state.read_register(irs),
+            rm      = state.read_register(irm);
 
     if (u) {
       // Unsigned
@@ -126,10 +125,13 @@ struct MulLong : public Ins {
     }
 
     if (s) {
-      cpsr |= CpuState::N_FLAG & rd_hi;
+      state.set_flag(CpuState::N_FLAG & rd_hi);
       if (rd_lo == 0 && rd_hi == 0)
-        cpsr |= CpuState::Z_FLAG;
+        state.set_flag(CpuState::Z_FLAG);
     }
+
+    state.write_register(ird_msw, rd_hi);
+    state.write_register(ird_lsw, rd_lo);
   }
 };
 

@@ -18,12 +18,10 @@ struct CountLeadingZeros : public Ins {
       irn(nibbles[0]) { }
 
   void execute(CpuState &state) override {
-    gword_t &rd = state.get_register(ird),
-            rn = state.get_register(irn);
+    gword_t rn = state.read_register(irn);
 
-    rd = count_leading_zeros(rn);
+    state.write_register(ird, count_leading_zeros(rn));
   }
-
 };
 
 }

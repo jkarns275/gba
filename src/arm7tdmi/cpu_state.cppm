@@ -169,138 +169,14 @@ struct CpuState {
 
   static constexpr gword_t MODE_MASK = 0x1F;
 
+  // A mask for all of the modifiable bits on the PSR.
+  // Bits other than this are marked do-not-modify and read-as-zeros
+  static constexpr gword_t PSR_MASK = ALL_FLAGS | MODE_MASK;
+
   static inline constexpr gword_t INDEX_PC = 15;
   static inline constexpr gword_t INDEX_LR = 14;
   static inline constexpr gword_t INDEX_SP = 13;
 
-  virtual Mode get_mode() = 0;
-  virtual void set_mode(Mode mode) = 0;
-  
-  virtual gword_t &get_register(gword_t index, Mode mode) = 0;
-  gword_t &get_register(gword_t index) {
-    return get_register(index, get_mode());
-  }
-
-  virtual gword_t &get_cpsr() = 0;
-
-  virtual gword_t &get_spsr(Mode mode) = 0;
-  inline gword_t &get_spsr() {
-    return get_spsr(get_mode());
-  }
-
-  Memory &memory;
-
-  CpuState(Memory &memory) : memory(memory) { }
-
-  gword_t get_flag(gword_t mask) {
-    return bool(get_cpsr() & mask);
-  }
-
-  void set_flag(gword_t mask) {
-    get_cpsr() |= mask;
-  }
-
-  void clear_flag(gword_t mask) {
-    get_cpsr() &= ~mask;
-  }
-
-  gword_t &get_sp() {
-    return get_register(INDEX_SP);
-  }
-
-  gword_t &get_lr() {
-    return get_register(INDEX_LR);
-  }
-
-  gword_t &get_pc() {
-    return get_register(INDEX_PC);
-  }
-  
-  void print_registers() {
-    for (int i = 0; i < 16; i++) {
-      if (i % 4 == 0 && i)
-        std::cout << "\n";
-      gword_t value = get_register(i);
-      std::cout <<  std::format("r{:<2} : 0x{:<8x}", i, value) << "  ";
-    }
-    std::cout << "\n";
-    std::cout << std::format("cpsr: 0x{:<8x}\n", get_cpsr());
-  }
-
-  bool registers_equal(CpuState &other)  {
-    for (int i = 0; i < 16; i++)
-      if (this->get_register(i) != other.get_register(i))
-        return false;
-
-    return this->get_cpsr() == other.get_cpsr();
-  }
-
-  bool evaluate_cond(Cond cond) {
-    gword_t cspr = get_cpsr();
-    bool  n = N_FLAG & cspr,
-          z = Z_FLAG & cspr,
-          c = C_FLAG & cspr,
-          v = V_FLAG & cspr;
-    switch (cond) {
-      case EQ: return z;
-      case NE: return !z;
-      case CSHS: return c;
-      case CCLO: return !c;
-      case MI: return n;
-      case PL: return !n;
-      case VS: return v;
-      case VC: return !v;
-      case HI: return c && !z;
-      case LS: return !c || z;
-      case GE: return n == v;
-      case LT: return n != v;
-      case GT: return !z && n == v;
-      case LE: return z && n != v;
-      case AL: return true;
-      // Supposed to be unpredictable
-      case NV: return false;
-    }
-  }
-
-  inline glong_t &long_at(gword_t addr) {
-    return memory.long_at(addr, get_mode());
-  }
-
-  inline signed_glong_t &signed_long_at(gword_t addr) {
-    return memory.signed_long_at(addr, get_mode());
-  }
-
-  inline gword_t &at(gword_t addr) {
-    return memory.at(addr, get_mode());
-  }
-
-  inline signed_gword_t &signed_at(gword_t addr) {
-    return memory.signed_at(addr, get_mode());
-  }
-
-  inline gshort_t &short_at(gword_t addr) {
-    return memory.short_at(addr, get_mode());
-  }
-
-  inline signed_gshort_t &signed_short_at(gword_t addr) {
-    return memory.signed_short_at(addr, get_mode());
-  }
-
-  inline byte &byte_at(gword_t addr) {
-    return memory.byte_at(addr, get_mode());
-  }
-  
-  inline signed_byte &signed_byte_at(gword_t addr) {
-    return memory.signed_byte_at(addr, get_mode());
-  }
-
-  gword_t rotated_at(gword_t addr) {
-    return memory.rotated_at(addr, get_mode());
-  }
-};
-
-struct ArmCpuState : public CpuState {
- 
   gword_t reg[16] = {0};
   gword_t reg_bank_fiq[7] = {0};
   gword_t reg_bank_svc[2] = {0};
@@ -316,9 +192,14 @@ struct ArmCpuState : public CpuState {
           spsr_irq = 0,
           spsr_und = 0;
   
-  ArmCpuState(Memory &memory) : CpuState(memory) { }
+  Memory &memory;
+
+  CpuState(Memory &memory) : memory(memory) { }
   
-  gword_t &get_spsr(Mode mode) override {
+  bool is_thumb_mode() { return cpsr & CpuState::T_FLAG; }
+
+private: 
+  gword_t &get_spsr(Mode mode) {
     assert (mode != SYS);
     assert (mode != USR);
   
@@ -333,7 +214,7 @@ struct ArmCpuState : public CpuState {
     }
   }
   
-  gword_t &get_register(gword_t index, Mode mode) override {
+  gword_t &get_register(gword_t index, Mode mode) {
     assert (index < 16);
     assert (mode != IRQ);
    
@@ -371,59 +252,185 @@ struct ArmCpuState : public CpuState {
     else
       return reg_bank[index - 13];
   }
+
+ public:
+  gword_t read_register(gword_t index, Mode mode) {
+    gword_t reg = get_register(index, mode);
+    
+    if (index == INDEX_PC) {
+      if (is_thumb_mode()) {
+        return reg + 4;
+      } else {
+        return reg + 8;
+      }
+    } else {
+      return reg;
+    }
+  }
   
-  gword_t &get_cpsr() override {
-    return cpsr;
+  gword_t read_register(gword_t index) {
+    return read_register(index, get_mode());
   }
 
-  Mode get_mode() override {
+  void write_register(gword_t index, gword_t value, Mode mode) {
+    gword_t &reg = get_register(index, mode);
+    reg = value;
+  }
+
+  inline void write_register(gword_t index, gword_t value) {
+    write_register(index, value, get_mode());
+  }
+
+  gword_t read_cpsr() {
+    return cpsr & CpuState::PSR_MASK;
+  }
+
+  gword_t read_spsr(Mode mode) {
+    return get_spsr(mode);
+  }
+  
+  gword_t read_spsr() {
+    return get_spsr(get_mode());
+  }
+  
+  void write_cpsr(gword_t new_cpsr) {
+    cpsr = new_cpsr & PSR_MASK;
+  }
+
+  void write_spsr(gword_t new_spsr, Mode mode) {
+    gword_t &spsr = get_spsr(mode);
+    spsr = new_spsr;
+  }
+
+  inline void write_spsr(gword_t new_spsr) {
+    write_spsr(new_spsr, get_mode());
+  }
+
+  Mode get_mode() {
     return (Mode) (USR | (cpsr & MODE_MASK));
   }
 
-  void set_mode(Mode mode) override {
+  void set_mode(Mode mode) {
     cpsr &= ~MODE_MASK;
     cpsr |= (gword_t) mode;
   }
-};
 
-struct RegOverride {
-  gword_t index, value;
+  gword_t get_flag(gword_t mask) {
+    assert(mask & ALL_FLAGS);
+    return bool(cpsr & mask);
+  }
 
-  RegOverride(gword_t index, gword_t value) : index(index), value(value) {}
-};
+  void set_flag(gword_t mask) {
+    assert((mask & ALL_FLAGS) || mask == 0);
+    cpsr |= mask;
+  }
 
-struct CPSROverride {
-  gword_t value;
+  void clear_flag(gword_t mask) {
+    assert(mask & ALL_FLAGS);
+    cpsr &= ~mask;
+  }
 
-  CPSROverride(gword_t value) : value(value) {}
-};
+  gword_t read_sp() {
+    return read_register(INDEX_SP);
+  }
 
-struct CpuStateOverride : public CpuState {
-  CpuState &state;
-  vector<variant<RegOverride, CPSROverride>> overrides;
+  void write_sp(gword_t value) {
+    write_register(INDEX_SP, value);
+  }
 
-  CpuStateOverride(CpuState &state, vector<variant<RegOverride, CPSROverride>> overrides) : CpuState(state.memory), state(state), overrides(std::move(overrides)) {}
+  gword_t read_lr() {
+    return read_register(INDEX_LR);
+  }
 
-  // TODO: Make this support specific CPU modes.
-  gword_t &get_register(gword_t index, Mode mode) override {
-    for (auto &v : overrides) {
-      if (std::holds_alternative<RegOverride>(v)) {
-        RegOverride &ro = std::get<RegOverride>(v);
-        if (ro.index == index) {
-          return ro.value;
-        }
-      }
+  void write_lr(gword_t value) {
+    write_register(INDEX_LR, value);
+  }
+
+  gword_t read_pc() {
+    return read_register(INDEX_PC);
+  }
+
+  gword_t read_current_pc() {
+    return get_register(INDEX_PC, get_mode());
+  }
+
+  void write_pc(gword_t value) {
+    write_register(INDEX_PC, value);
+  }
+  
+  void print_registers() {
+    for (int i = 0; i < 16; i++) {
+      if (i % 4 == 0 && i)
+        std::cout << "\n";
+      gword_t value = read_register(i);
+      std::cout <<  std::format("r{:<2} : 0x{:<8x}", i, value) << "  ";
     }
-
-    return state.get_register(index);
+    std::cout << "\n";
+    std::cout << std::format("cpsr: 0x{:<8x}\n", cpsr);
   }
 
-  virtual gword_t &get_cpsr() override {
-    return state.get_cpsr();
+  bool evaluate_cond(Cond cond) {
+    bool  n = N_FLAG & cpsr,
+          z = Z_FLAG & cpsr,
+          c = C_FLAG & cpsr,
+          v = V_FLAG & cpsr;
+    switch (cond) {
+      case EQ:  return z;
+      case NE:  return !z;
+      case CSHS: 
+                return c;
+      case CCLO:
+                return !c;
+      case MI:  return n;
+      case PL:  return !n;
+      case VS:  return v;
+      case VC:  return !v;
+      case HI:  return c && !z;
+      case LS:  return !c || z;
+      case GE:  return n == v;
+      case LT:  return n != v;
+      case GT:  return !z && n == v;
+      case LE:  return z && n != v;
+      case AL:  return true;
+      // Supposed to be unpredictable
+      case NV:  return false;
+    }
   }
 
-  virtual gword_t &get_spsr(Mode mode) override {
-    return state.get_spsr(mode);
+  inline glong_t &long_at(gword_t addr) {
+    return memory.long_at(addr, get_mode());
+  }
+
+  inline signed_glong_t &signed_long_at(gword_t addr) {
+    return memory.signed_long_at(addr, get_mode());
+  }
+
+  inline gword_t &at(gword_t addr) {
+    return memory.at(addr, get_mode());
+  }
+
+  inline signed_gword_t &signed_at(gword_t addr) {
+    return memory.signed_at(addr, get_mode());
+  }
+
+  inline gshort_t &short_at(gword_t addr) {
+    return memory.short_at(addr, get_mode());
+  }
+
+  inline signed_gshort_t &signed_short_at(gword_t addr) {
+    return memory.signed_short_at(addr, get_mode());
+  }
+
+  inline byte &byte_at(gword_t addr) {
+    return memory.byte_at(addr, get_mode());
+  }
+  
+  inline signed_byte &signed_byte_at(gword_t addr) {
+    return memory.signed_byte_at(addr, get_mode());
+  }
+
+  inline gword_t rotated_at(gword_t addr) {
+    return memory.rotated_at(addr, get_mode());
   }
 };
 

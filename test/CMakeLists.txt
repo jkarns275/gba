@@ -6,4 +6,5 @@ target_sources(arm7tdmi_tests
     FILE_SET cxx_modules TYPE CXX_MODULES FILES ${ARM7TDMI_TEST_SRCS}
 )
 target_link_libraries(arm7tdmi_tests PRIVATE Catch2::Catch2WithMain)
+target_link_libraries(arm7tdmi_tests PRIVATE spdlog::spdlog)
 target_link_libraries(arm7tdmi_tests PRIVATE arm7tdmi_lib)

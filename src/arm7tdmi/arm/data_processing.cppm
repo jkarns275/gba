@@ -115,20 +115,19 @@ struct DataProcessing : public Ins {
       ird(ird),
       operand(operand) { }
 
-  void execute(CpuState &cpu_state) override {
+  void execute(CpuState &state) override {
     ShifterOperandValue operand = std::visit(
-      [&](ShifterOperand &op) { return op.evaluate(cpu_state); },
+      [&](ShifterOperand &op) { return op.evaluate(state); },
       this->operand
     );
 
     gword_t op = operand.value;
     gword_t carry = operand.carry;
-    gword_t carry_flag = bool(cpu_state.get_flag(CpuState::C_FLAG));
+    gword_t carry_flag = bool(state.get_flag(CpuState::C_FLAG));
 
-    gword_t &rd = cpu_state.get_register(ird);
-    gword_t rn = cpu_state.get_register(irn);
-    gword_t &cpsr = cpu_state.get_cpsr();
-    gword_t test;
+    gword_t rd;
+    gword_t rn = state.read_register(irn);
+    gword_t cpsr = state.read_cpsr();
 
     gword_t cond_code_mask = Z_FLAG | N_FLAG;
     gword_t overflow = 0;
@@ -136,20 +135,17 @@ struct DataProcessing : public Ins {
     switch (opcode) {
       case AND:
         rd = rn & op;
-        test = rd;
         cond_code_mask |= C_FLAG;
         break;
 
       case EOR:
         rd = rn ^ op;
-        test = rd;
         cond_code_mask |= C_FLAG;
         break;
 
       case SUB: {
         CheckedResult r0 = CheckedResult::sub(rn, op);
         rd = r0.value;
-        test = rd;
         carry = !r0.carry;
         overflow = r0.overflow;
         cond_code_mask |= C_FLAG | V_FLAG;
@@ -159,7 +155,6 @@ struct DataProcessing : public Ins {
       case RSB: {
         CheckedResult r0 = CheckedResult::sub(op, rn);
         rd = r0.value;
-        test = rd;
         carry = !r0.carry;
         overflow = r0.overflow;
         cond_code_mask |= C_FLAG | V_FLAG;
@@ -169,7 +164,6 @@ struct DataProcessing : public Ins {
       case ADD: {
         CheckedResult r0 = CheckedResult::add(rn, op);
         rd = r0.value;
-        test = rd;
         carry = r0.carry;
         overflow = r0.overflow;
         cond_code_mask |= C_FLAG | V_FLAG;
@@ -180,7 +174,6 @@ struct DataProcessing : public Ins {
         CheckedResult r0 = CheckedResult::add(rn, op);
         CheckedResult r1 = CheckedResult::add(r0.value, carry_flag);
         rd = r1.value;
-        test = rd;
         carry = r1.carry | r0.carry;
         overflow = r1.overflow | r0.overflow;
         cond_code_mask |= C_FLAG | V_FLAG;
@@ -191,7 +184,6 @@ struct DataProcessing : public Ins {
         CheckedResult r0 = CheckedResult::sub(rn, op);
         CheckedResult r1 = CheckedResult::sub(r0.value, carry_flag ^ 1);
         rd = r1.value;
-        test = rd;
         carry = !(r1.carry | r0.carry);
         overflow = r1.overflow | r0.overflow;
         cond_code_mask |= C_FLAG | V_FLAG;
@@ -202,7 +194,6 @@ struct DataProcessing : public Ins {
         CheckedResult r0 = CheckedResult::sub(op, rn);
         CheckedResult r1 = CheckedResult::sub(r0.value, carry_flag == 0);
         rd = r1.value;
-        test = rd;
         carry = !(r1.carry | r0.carry);
         overflow = r1.overflow | r0.overflow;
         cond_code_mask |= C_FLAG | V_FLAG;
@@ -211,42 +202,37 @@ struct DataProcessing : public Ins {
       
       case ORR:
         rd = rn | op;
-        test = rd;
         cond_code_mask |= C_FLAG;
         break;
       
       case MOV:
         rd = op;
-        test = rd;
-        cond_code_mask |= C_FLAG ;
+        cond_code_mask |= C_FLAG;
         break;
       
       case BIC:
         rd = rn & ~op;
-        test = rd;
         cond_code_mask |= C_FLAG;
         break;
       
       case MVN:
         rd = ~op;
-        test = rd;
         cond_code_mask |= C_FLAG;
         break;
 
       case TST:
-        test = rn & op;
+        rd = rn & op;
         cond_code_mask |= C_FLAG;
         goto set_flags;
       
       case TEQ:
-        test = rn ^ op;
+        rd = rn ^ op;
         cond_code_mask |= C_FLAG;
-        carry = operand.carry;
         goto set_flags;
       
       case CMP: {
         CheckedResult r0 = CheckedResult::sub(rn, op);
-        test = r0.value;
+        rd = r0.value;
         carry = !r0.carry;
         overflow = r0.overflow;
         cond_code_mask |= C_FLAG | V_FLAG;
@@ -255,7 +241,7 @@ struct DataProcessing : public Ins {
 
       case CMN: {
         CheckedResult r0 = CheckedResult::add(rn, op);
-        test = r0.value;
+        rd = r0.value;
         carry = r0.carry;
         overflow = r0.overflow;
         cond_code_mask |= C_FLAG | V_FLAG;
@@ -263,19 +249,23 @@ struct DataProcessing : public Ins {
       }
     }
 
+    state.write_register(ird, rd);
+
     if (s) {
       if (this->ird == 15) {
-        cpsr = cpu_state.get_cpsr();
-      } else if (s) {
-      set_flags:
+        cpsr = state.read_spsr();
+      } else {
+    set_flags:
         cpsr &= ~cond_code_mask;
         gword_t mask = 
-            (test == 0 ? Z_FLAG : 0) 
-          | (test & GWORD_T_SIGN_BIT ? N_FLAG : 0)
+            (rd == 0 ? Z_FLAG : 0) 
+          | (rd & GWORD_T_SIGN_BIT ? N_FLAG : 0)
           | (overflow ? V_FLAG : 0)
           | (carry ? C_FLAG : 0);
         cpsr |= mask & cond_code_mask;
       }
+      
+      state.write_cpsr(cpsr);
     }
   }
 };

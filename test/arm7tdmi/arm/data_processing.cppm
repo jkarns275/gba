@@ -54,14 +54,14 @@ struct DataProcessingTest : public ArmInstructionTestWithFlags<DataProcessing> {
     value_map["S"] = s;
     value_map["opcode"] = Opcode;
 
-    state.get_register(irn) = rn;
+    state.write_register(irn, rn);
   }
 
   void check_requirements(CpuState &state) override {
     if (calculate_operand(state).carry)
       output_flags |= CpuState::C_FLAG;
 
-    REQUIRE(state.get_register(ird) == expected_value(state));
+    REQUIRE(state.read_register(ird) == expected_value(state));
 
     if (s) {
       ArmInstructionTestWithFlags<DataProcessing>::check_requirements(state);
@@ -100,8 +100,8 @@ struct RegShiftTest : public DataProcessingTest<Opcode> {
 
   void prepare_state(CpuState &state) override {
     DataProcessingTest<Opcode>::prepare_state(state);
-    state.get_register(irm) = rm;
-    state.get_register(irs) = rs;
+    state.write_register(irm, rm);
+    state.write_register(irs, rs);
     this->value_map["Rm"] = irm;
     this->value_map["Rs"] = irs;
     this->value_map["shift type"] = shift;
@@ -190,7 +190,7 @@ struct ImmShiftTest : public DataProcessingTest<Opcode> {
     this->value_map["shift type"] = shift;
     this->value_map["Rm"] = irm;
 
-    state.get_register(irm) = rm;
+    state.write_register(irm, rm);
 
   }
 
@@ -223,7 +223,7 @@ void no_flag_tests_imm_shift() {
 
 template <>
 gword_t Mock<Opcode::ADC>::expected_value(DataProcessingTest<Opcode::ADC> &d, CpuState &state) {
-  return state.get_register(d.irn) + d.calculate_operand(state).value + bool((gword_t) d.input_flags & CpuState::C_FLAG);
+  return state.read_register(d.irn) + d.calculate_operand(state).value + bool((gword_t) d.input_flags & CpuState::C_FLAG);
 }
 
 TEST_CASE("ADC (reg shift)") {
@@ -288,7 +288,7 @@ TEST_CASE("ADC (imm rot)") {
 
 template <>
 gword_t Mock<Opcode::ADD>::expected_value(DataProcessingTest<Opcode::ADD> &d, CpuState &state) {
-  return state.get_register(d.irn) + d.calculate_operand(state).value;
+  return state.read_register(d.irn) + d.calculate_operand(state).value;
 }
 
 TEST_CASE("ADD (reg shift)") {
@@ -353,7 +353,7 @@ TEST_CASE("ADD (imm rot)") {
 
 template <>
 gword_t Mock<Opcode::AND>::expected_value(DataProcessingTest<Opcode::AND> &d, CpuState &state) {
-  return state.get_register(d.irn) & d.calculate_operand(state).value;
+  return state.read_register(d.irn) & d.calculate_operand(state).value;
 }
 
 TEST_CASE("AND (reg shift)") {
@@ -370,7 +370,7 @@ TEST_CASE("AND (imm rot)") {
 
 template <>
 gword_t Mock<Opcode::BIC>::expected_value(DataProcessingTest<Opcode::BIC> &d, CpuState &state) {
-  return state.get_register(d.irn) & ~d.calculate_operand(state).value;
+  return state.read_register(d.irn) & ~d.calculate_operand(state).value;
 }
 
 TEST_CASE("BIC (reg shift)") {
@@ -387,7 +387,7 @@ TEST_CASE("BIC (imm rot)") {
 
 template <>
 gword_t Mock<Opcode::EOR>::expected_value(DataProcessingTest<Opcode::EOR> &d, CpuState &state) {
-  return state.get_register(d.irn) ^ d.calculate_operand(state).value;
+  return state.read_register(d.irn) ^ d.calculate_operand(state).value;
 }
 
 TEST_CASE("EOR (reg shift)") {
@@ -439,7 +439,7 @@ TEST_CASE("MVN (imm rot)") {
 
 template <>
 gword_t Mock<Opcode::ORR>::expected_value(DataProcessingTest<Opcode::ORR> &d, CpuState &state) {
-  return state.get_register(d.irn) | d.calculate_operand(state).value;
+  return state.read_register(d.irn) | d.calculate_operand(state).value;
 }
 
 TEST_CASE("ORR (reg shift)") {
@@ -456,7 +456,7 @@ TEST_CASE("ORR (imm rot)") {
 
 template <>
 gword_t Mock<Opcode::RSB>::expected_value(DataProcessingTest<Opcode::RSB> &d, CpuState &state) {
-  return  d.calculate_operand(state).value - state.get_register(d.irn);
+  return  d.calculate_operand(state).value - state.read_register(d.irn);
 }
 
 TEST_CASE("RSB (reg shift)") {
@@ -473,7 +473,7 @@ TEST_CASE("RSB (imm rot)") {
 
 template <>
 gword_t Mock<Opcode::RSC>::expected_value(DataProcessingTest<Opcode::RSC> &d, CpuState &state) {
-  return d.calculate_operand(state).value - state.get_register(d.irn) - !bool(d.input_flags & CpuState::C_FLAG);
+  return d.calculate_operand(state).value - state.read_register(d.irn) - !bool(d.input_flags & CpuState::C_FLAG);
 }
 
 TEST_CASE("RSC (reg shift)") {
@@ -512,7 +512,7 @@ TEST_CASE("RSC (imm rot)") {
 
 template <>
 gword_t Mock<Opcode::SBC>::expected_value(DataProcessingTest<Opcode::SBC> &d, CpuState &state) {
-  return state.get_register(d.irn) - d.calculate_operand(state).value - !bool(d.input_flags & CpuState::C_FLAG);
+  return state.read_register(d.irn) - d.calculate_operand(state).value - !bool(d.input_flags & CpuState::C_FLAG);
 }
 
 TEST_CASE("SBC (reg shift)") {
@@ -553,7 +553,7 @@ TEST_CASE("SBC (imm rot)") {
 
 template <>
 gword_t Mock<Opcode::SUB>::expected_value(DataProcessingTest<Opcode::SUB> &d, CpuState &state) {
-  return state.get_register(d.irn) - d.calculate_operand(state).value;
+  return state.read_register(d.irn) - d.calculate_operand(state).value;
 }
 
 TEST_CASE("SUB (reg shift)") {
@@ -595,7 +595,7 @@ TEST_CASE("SUB (imm rot)") {
 
 template <>
 gword_t Mock<Opcode::CMN>::expected_value(DataProcessingTest<Opcode::CMN> &d, CpuState &state) {
-  return state.get_register(d.ird);
+  return state.read_register(d.ird);
 }
 
 TEST_CASE("CMN (reg shift)") {
@@ -631,7 +631,7 @@ TEST_CASE("CMN (reg shift)") {
 
 template <>
 gword_t Mock<Opcode::CMP>::expected_value(DataProcessingTest<Opcode::CMP> &d, CpuState &state) {
-  return state.get_register(d.ird);
+  return state.read_register(d.ird);
 }
 
 TEST_CASE("CMP (reg shift)") {
@@ -672,7 +672,7 @@ TEST_CASE("CMP (reg shift)") {
 
 template <>
 gword_t Mock<Opcode::TEQ>::expected_value(DataProcessingTest<Opcode::TEQ> &d, CpuState &state) {
-  return state.get_register(d.ird);
+  return state.read_register(d.ird);
 }
 
 TEST_CASE("TEQ (reg shift)") {

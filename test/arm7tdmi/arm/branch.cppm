@@ -4,6 +4,7 @@ module;
 #include <unordered_map>
 
 #include <catch2/catch_test_macros.hpp>
+#include <spdlog/spdlog.h>
 
 export module test.arm7tdmi.arm.branch;
 
@@ -19,17 +20,16 @@ TEST_CASE("branch::B") {
   values["L"] = 0;
 
   SimpleMemory memory;
-  ArmCpuState arm_state(memory);
-  CpuState &state = arm_state;
+  CpuState state(memory);
 
   const gword_t LR_VALUE = 1431;
   const gword_t START_ADDRESS = 0x100;
 
-  state.get_lr() = LR_VALUE;
+  state.write_lr(LR_VALUE);
   
   // Positive offset
   for (gword_t offset = 0; offset < 0x100; offset += 0x10) {
-    state.get_pc() = START_ADDRESS;
+    state.write_pc(START_ADDRESS);
     
     values["offset"] = offset;
 
@@ -37,14 +37,14 @@ TEST_CASE("branch::B") {
     BranchWithLink be(instruction);
     be.execute(state);
 
-    REQUIRE(state.get_pc() == START_ADDRESS + (offset << 2));
-    REQUIRE(state.get_lr() == LR_VALUE);
+    REQUIRE(state.read_current_pc() == START_ADDRESS + 8 + (offset << 2));
+    REQUIRE(state.read_lr() == LR_VALUE);
     REQUIRE(!state.get_flag(CpuState::T_FLAG));
   }
 
   // Negative offset
   for (gword_t offset = 1; offset < 0x100; offset += 0x10) {
-    state.get_pc() = START_ADDRESS;
+    state.write_pc(START_ADDRESS);
     
     values["offset"] = -offset;
 
@@ -52,8 +52,8 @@ TEST_CASE("branch::B") {
     BranchWithLink be(instruction);
     be.execute(state);
 
-    REQUIRE(state.get_pc() == START_ADDRESS - (offset << 2));
-    REQUIRE(state.get_lr() == LR_VALUE);
+    REQUIRE(state.read_current_pc() == START_ADDRESS + 8 - (offset << 2));
+    REQUIRE(state.read_lr() == LR_VALUE);
     REQUIRE(!state.get_flag(CpuState::T_FLAG));
   }
 }
@@ -63,8 +63,7 @@ TEST_CASE("branch::BL") {
   values["L"] = 1;
 
   SimpleMemory memory;
-  ArmCpuState arm_state(memory);
-  CpuState &state = arm_state;
+  CpuState state(memory);
 
   const gword_t LR_VALUE = 1431;
   const gword_t START_ADDRESS = 0x100;
@@ -72,8 +71,8 @@ TEST_CASE("branch::BL") {
   // Positive offset
   for (gword_t offset = 1; offset < 0x100; offset += 0x10) {
     state.clear_flag(CpuState::T_FLAG);
-    state.get_pc() = START_ADDRESS;
-    state.get_lr() = LR_VALUE;
+    state.write_pc(START_ADDRESS);
+    state.write_lr(LR_VALUE);
     
     values["offset"] = offset;
 
@@ -81,16 +80,16 @@ TEST_CASE("branch::BL") {
     BranchWithLink be(instruction);
     be.execute(state);
 
-    REQUIRE(state.get_pc() == START_ADDRESS + (offset << 2));
-    REQUIRE(state.get_lr() == START_ADDRESS + 4);
+    REQUIRE(state.read_current_pc() == START_ADDRESS + 8 + (offset << 2));
+    REQUIRE(state.read_lr() == START_ADDRESS + 4);
     REQUIRE(!state.get_flag(CpuState::T_FLAG));
   }
 
   // Negative offset
   for (gword_t offset = 1; offset < 0x100; offset += 0x10) {
       state.clear_flag(CpuState::T_FLAG);
-    state.get_pc() = START_ADDRESS;
-    state.get_lr() = LR_VALUE;
+    state.write_pc(START_ADDRESS);
+    state.write_lr(LR_VALUE);
     
     values["offset"] = -offset;
 
@@ -98,8 +97,8 @@ TEST_CASE("branch::BL") {
     BranchWithLink be(instruction);
     be.execute(state);
 
-    REQUIRE(state.get_pc() == START_ADDRESS - (offset << 2));
-    REQUIRE(state.get_lr() == START_ADDRESS + 4);
+    REQUIRE(state.read_current_pc() == START_ADDRESS + 8 - (offset << 2));
+    REQUIRE(state.read_lr() == START_ADDRESS + 4);
     REQUIRE(!state.get_flag(CpuState::T_FLAG));
   }
 
@@ -110,8 +109,7 @@ TEST_CASE("branch::BLX (imm)") {
   values["cond"] = 0xF;
 
   SimpleMemory memory;
-  ArmCpuState arm_state(memory);
-  CpuState &state = arm_state;
+  CpuState state(memory);
 
   const gword_t LR_VALUE = 1431;
   const gword_t START_ADDRESS = 0x1000;
@@ -121,8 +119,8 @@ TEST_CASE("branch::BLX (imm)") {
     // Positive offset
     for (gword_t offset = 1; offset < 0x100; offset += 0x10) {
       state.clear_flag(CpuState::T_FLAG);
-      state.get_pc() = START_ADDRESS;
-      state.get_lr() = LR_VALUE;
+      state.write_pc(START_ADDRESS);
+      state.write_lr(LR_VALUE);
       
       values["offset"] = offset;
 
@@ -130,8 +128,8 @@ TEST_CASE("branch::BLX (imm)") {
       BranchWithLink be(instruction);
       be.execute(state);
 
-      REQUIRE(state.get_pc() == START_ADDRESS + (offset << 2) + (l << 1));
-      REQUIRE(state.get_lr() == START_ADDRESS + 4);
+      REQUIRE(state.read_current_pc() == START_ADDRESS + 8 + (offset << 2) + (l << 1));
+      REQUIRE(state.read_lr() == START_ADDRESS + 4);
       REQUIRE(state.get_flag(CpuState::T_FLAG));
     }
   }
@@ -141,8 +139,8 @@ TEST_CASE("branch::BLX (imm)") {
     // Positive offset
     for (gword_t offset = 1; offset < 0x100; offset += 0x10) {
       state.clear_flag(CpuState::T_FLAG);
-      state.get_pc() = START_ADDRESS;
-      state.get_lr() = LR_VALUE;
+      state.write_pc(START_ADDRESS);
+      state.write_lr(LR_VALUE);
       
       values["offset"] = -offset;
 
@@ -150,8 +148,8 @@ TEST_CASE("branch::BLX (imm)") {
       BranchWithLink be(instruction);
       be.execute(state);
 
-      REQUIRE(state.get_pc() == START_ADDRESS - (offset << 2) + (l << 1));
-      REQUIRE(state.get_lr() == START_ADDRESS + 4);
+      REQUIRE(state.read_current_pc() == START_ADDRESS + 8 - (offset << 2) + (l << 1));
+      REQUIRE(state.read_lr() == START_ADDRESS + 4);
       REQUIRE(state.get_flag(CpuState::T_FLAG));
     }
   }
@@ -163,8 +161,7 @@ TEST_CASE("branch::BLX (reg)") {
   values["lr"] = 1;
 
   SimpleMemory memory;
-  ArmCpuState arm_state(memory);
-  CpuState &state = arm_state;
+  CpuState state(memory);
 
   const gword_t LR_VALUE = 1431;
   const gword_t START_ADDRESS = 0x1000;
@@ -173,9 +170,9 @@ TEST_CASE("branch::BLX (reg)") {
   for (gword_t bit = 0; bit < 2; bit++) {
     for (gword_t r = 0; r < 14; r++) {
       state.clear_flag(CpuState::T_FLAG);
-      state.get_pc() = START_ADDRESS;
-      state.get_lr() = LR_VALUE;
-      state.get_register(r) = (START_ADDRESS + OFFSET) | bit;
+      state.write_pc(START_ADDRESS);
+      state.write_lr(LR_VALUE);
+      state.write_register(r, (START_ADDRESS + OFFSET) | bit);
       
       values["Rm"] = r;
 
@@ -183,9 +180,9 @@ TEST_CASE("branch::BLX (reg)") {
       BranchExchange be(instruction);
       be.execute(state);
 
-      REQUIRE(state.get_pc() == ((START_ADDRESS + OFFSET) & ~1));
-      REQUIRE(state.get_lr() == START_ADDRESS + 4);
-      REQUIRE(bool(state.get_flag(CpuState::T_FLAG)) == bool(state.get_register(r) & 1));
+      REQUIRE(state.read_current_pc() == ((START_ADDRESS + OFFSET) & ~1));
+      REQUIRE(state.read_lr() == START_ADDRESS + 4);
+      REQUIRE(bool(state.get_flag(CpuState::T_FLAG)) == bool(state.read_register(r) & 1));
     }
   }
 
@@ -196,8 +193,7 @@ TEST_CASE("branch::BX") {
   values["lr"] = 0;
 
   SimpleMemory memory;
-  ArmCpuState arm_state(memory);
-  CpuState &state = arm_state;
+  CpuState state(memory);
 
   const gword_t LR_VALUE = 1431;
   const gword_t START_ADDRESS = 0x1000;
@@ -206,9 +202,9 @@ TEST_CASE("branch::BX") {
   for (gword_t bit = 0; bit < 2; bit++) {
     for (gword_t r = 0; r < 14; r++) {
       state.clear_flag(CpuState::T_FLAG);
-      state.get_pc() = START_ADDRESS;
-      state.get_lr() = LR_VALUE;
-      state.get_register(r) = (START_ADDRESS + OFFSET) | bit;
+      state.write_pc(START_ADDRESS);
+      state.write_lr(LR_VALUE);
+      state.write_register(r, (START_ADDRESS + OFFSET) | bit);
       
       values["Rm"] = r;
 
@@ -216,9 +212,9 @@ TEST_CASE("branch::BX") {
       BranchExchange be(instruction);
       be.execute(state);
 
-      REQUIRE(state.get_pc() == ((START_ADDRESS + OFFSET) & ~1));
-      REQUIRE(state.get_lr() == LR_VALUE);
-      REQUIRE(bool(state.get_flag(CpuState::T_FLAG)) == bool(state.get_register(r) & 1));
+      REQUIRE(state.read_current_pc() == ((START_ADDRESS + OFFSET) & ~1));
+      REQUIRE(state.read_lr() == LR_VALUE);
+      REQUIRE(bool(state.get_flag(CpuState::T_FLAG)) == bool(state.read_register(r) & 1));
     }
   }
 

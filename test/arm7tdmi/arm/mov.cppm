@@ -51,7 +51,7 @@ struct LoadStoreBaseTest : public ArmInstructionTest<I> {
     this->value_map["Rd"] = ird;
     this->value_map["Rn"] = irn;
 
-    state.get_register(irn) = rn;
+    state.write_register(irn, rn);
   }
 };
 
@@ -87,7 +87,7 @@ struct AddrMode3RegOffset : public AddressingModeFixture {
   void prepare_state(CpuState &state, unordered_map<string, gword_t> &value_map) override {
     value_map["Rm"] = irm;
 
-    state.get_register(irm) = rm;
+    state.write_register(irm, rm);
   }
 
   gword_t get_offset(CpuState &state) override {
@@ -130,7 +130,7 @@ struct AddrMode2RegOffset : public AddressingModeFixture {
     value_map["shift_by"] = shift_imm;
     value_map["shift_type"] = shift;
     value_map["Rm"] = irm;
-    state.get_register(irm) = rm;
+    state.write_register(irm, rm);
   }
 
   gword_t get_offset(CpuState &state) override {
@@ -178,18 +178,18 @@ struct LoadOffsetTest : public LoadStoreBaseTest<LoadStoreOffset> {
       target = ror<gword_t>(value, 8 * (address % 4));
     }
 
-    REQUIRE(state.get_register(ird) == target);
+    REQUIRE(state.read_register(ird) == target);
 
     signed_gword_t sign = u ? 1 : -1;
     switch (switch_case(p, w)) {
       case switch_case(false, false):
       case switch_case(false, true):
-        REQUIRE(state.get_register(irn) + sign * addressing_mode.get_offset(state));
+        REQUIRE(state.read_register(irn) + sign * addressing_mode.get_offset(state));
         break;
       case switch_case(true, false):
         break;
       case switch_case(true, true):
-        REQUIRE(state.get_register(irn) == address);
+        REQUIRE(state.read_register(irn) == address);
         break;
     }
   }
@@ -285,9 +285,9 @@ struct StoreOffsetTest : public LoadStoreBaseTest<LoadStoreOffset> {
     
     addressing_mode.prepare_state(state, value_map);
     if (b) {
-      state.get_register(ird) = value & 0xFF;
+      state.write_register(ird, value & 0xFF);
     } else {
-      state.get_register(ird) = value;
+      state.write_register(ird, value);
     }
     
     value_map["I"] = addressing_mode.get_i();
@@ -313,12 +313,12 @@ struct StoreOffsetTest : public LoadStoreBaseTest<LoadStoreOffset> {
     switch (switch_case(p, w)) {
       case switch_case(false, false):
       case switch_case(false, true):
-        REQUIRE(state.get_register(irn) + sign * addressing_mode.get_offset(state));
+        REQUIRE(state.read_register(irn) + sign * addressing_mode.get_offset(state));
         break;
       case switch_case(true, false):
         break;
       case switch_case(true, true):
-        REQUIRE(state.get_register(irn) == address);
+        REQUIRE(state.read_register(irn) == address);
         break;
     }
   }
@@ -391,16 +391,16 @@ struct LoadTest : public LoadStoreBaseTest<LoadStore> {
         __builtin_unreachable();
         break;
       case switch_case(false, true):
-        REQUIRE(state.get_register(ird) == (value & 0xFFFF));
+        REQUIRE(state.read_register(ird) == (value & 0xFFFF));
         break;
       case switch_case(true, false): {
         signed_byte byte_target = value & 0xFF;
-        REQUIRE(state.get_register(ird) == (signed_gword_t) byte_target);
+        REQUIRE(state.read_register(ird) == (signed_gword_t) byte_target);
         break;
       }
       case switch_case(true, true): {
         signed_gshort_t short_target = value & 0xFFFF;
-        REQUIRE(state.get_register(ird) == (signed_gword_t) short_target);
+        REQUIRE(state.read_register(ird) == (signed_gword_t) short_target);
         break;
       }
     }
@@ -409,12 +409,12 @@ struct LoadTest : public LoadStoreBaseTest<LoadStore> {
     switch (switch_case(p, w)) {
       case switch_case(false, false):
       case switch_case(false, true):
-        REQUIRE(state.get_register(irn) + sign * addressing_mode.get_offset(state));
+        REQUIRE(state.read_register(irn) + sign * addressing_mode.get_offset(state));
         break;
       case switch_case(true, false):
         break;
       case switch_case(true, true):
-        REQUIRE(state.get_register(irn) == address);
+        REQUIRE(state.read_register(irn) == address);
         break;
     }
   }
@@ -493,7 +493,7 @@ struct StoreTest : public LoadStoreBaseTest<LoadStore> {
 
     switch (switch_case(s, h)) {
       case switch_case(false, true):
-        state.get_register(ird) = value & 0xFFFF;
+        state.write_register(ird, value & 0xFFFF);
         break;
       default:
         __builtin_unreachable();
@@ -514,13 +514,13 @@ struct StoreTest : public LoadStoreBaseTest<LoadStore> {
       case switch_case(false, false):
       case switch_case(false, true):
         REQUIRE(address == rn);
-        REQUIRE(state.get_register(irn) == rn + sign * offset);
+        REQUIRE(state.read_register(irn) == rn + sign * offset);
         break;
       case switch_case(true, false):
-        REQUIRE(state.get_register(irn) == rn);
+        REQUIRE(state.read_register(irn) == rn);
         break;
       case switch_case(true, true):
-        REQUIRE(state.get_register(irn) == address);
+        REQUIRE(state.read_register(irn) == address);
         break;
     }
   }
@@ -597,7 +597,7 @@ struct LoadStoreMultipleTest : public ArmInstructionTestWithFlags<LoadStoreMulti
     value_map["register_list"] = register_list;
     value_map["Rn"] = irn;
 
-    state.get_register(irn) = rn;
+    state.write_register(irn, rn);
   }
 
   const InstructionDefinition &get_definition() override {
@@ -616,15 +616,15 @@ struct StoreMultipleTest : public LoadStoreMultipleTest {
     LoadStoreMultipleTest::prepare_state(state);
 
     for (gword_t i = 0; i < 16; i++) {
-      state.get_register(i, SVC) = 0xCCCC0 + i;
-      state.get_register(i) = 0xFFFF0 + i;
+      state.write_register(i, 0xCCCC0 + i, SVC);
+      state.write_register(i,  0xFFFF0 + i);
     } 
 
     if (s) {
       state.set_mode(SVC);
     }
 
-    state.get_register(irn) = rn;
+    state.write_register(irn, rn);
   }
 
   void check_requirements(CpuState &state) override {
@@ -639,7 +639,11 @@ struct StoreMultipleTest : public LoadStoreMultipleTest {
             REQUIRE(state.at(base) == rn);
           }
         } else {
-          REQUIRE(state.at(base) == 0xFFFF0 + i);
+          if (i == 15) {
+            REQUIRE(state.at(base) == 0xFFFFF + 8);
+          } else {
+            REQUIRE(state.at(base) == 0xFFFF0 + i);
+          }
         }
         base += 4;
       }
@@ -647,7 +651,7 @@ struct StoreMultipleTest : public LoadStoreMultipleTest {
 
     if (w) {
       gword_t sign = u ? 1 : -1;
-      REQUIRE(state.get_register(irn) == rn + (sign * count_ones(register_list)) * 4);
+      REQUIRE(state.read_register(irn) == rn + (sign * count_ones(register_list)) * 4);
     }
   }
 };
@@ -707,19 +711,19 @@ struct LoadMultipleTest : public LoadStoreMultipleTest {
 
     if (s) {
       state.set_mode(SVC);
-      state.get_spsr() = SVC;
+      state.write_spsr(SVC);
     }
 
     for (gword_t i = 0; i < 16; i++) {
       state.at(address) = 0xFFFF0 + i;
-      state.get_register(i) = 0xAAAA0 + i;
+      state.write_register(i, 0xAAAA0 + i);
       address += 4;
     } 
 
-    state.get_register(13, SVC) = 0xCCCC0 + 13;
-    state.get_register(14, SVC) = 0xCCCC0 + 14;
+    state.write_register(13, 0xCCCC0 + 13, SVC);
+    state.write_register(14, 0xCCCC0 + 14, SVC);
 
-    state.get_register(irn) = rn;
+    state.write_register(irn, rn);
   }
 
   void check_requirements(CpuState &state) override {
@@ -729,26 +733,26 @@ struct LoadMultipleTest : public LoadStoreMultipleTest {
     if (set_user_no_pc) {
       for (gword_t i = 0; i < 15; i++) {
         if (register_list & flag_mask(i) && i != irn) {
-          REQUIRE(state.get_register(i, USR) == 0xFFFF0 + i);
+          REQUIRE(state.read_register(i, USR) == 0xFFFF0 + i);
         }
       }
-      REQUIRE(state.get_pc() == 0xAAAAF);
+      REQUIRE(state.read_current_pc() == 0xAAAAF);
     } else if (with_load_spsr) {
       for (gword_t i = 0; i < 15; i++) {
         if (register_list & flag_mask(i) && i != irn) {
-          REQUIRE(state.get_register(i) == 0xFFFF0 + i);
+          REQUIRE(state.read_register(i) == 0xFFFF0 + i);
         }
       }
 
-      REQUIRE(state.get_pc() == 0xFFFFE);
-      REQUIRE(state.get_spsr() == SVC);
+      REQUIRE(state.read_current_pc() == 0xFFFFE);
+      REQUIRE(state.read_spsr() == SVC);
     } else {
       for (gword_t i = 0; i < 16; i++) {
         if (register_list & flag_mask(i)) {
           if (i == 15) {
-            REQUIRE(state.get_register(i) == (0xFFFFE));
+            REQUIRE(state.read_current_pc() == (0xFFFFE));
           } else if (i != irn) {
-            REQUIRE(state.get_register(i) == 0xFFFF0 + i);
+            REQUIRE(state.read_register(i) == 0xFFFF0 + i);
           }
         }
       }
@@ -757,7 +761,7 @@ struct LoadMultipleTest : public LoadStoreMultipleTest {
 
     if (w && !(register_list & flag_mask(15))) {
       gword_t sign = u ? 1 : -1;
-      REQUIRE(state.get_register(irn) == rn + (sign * count_ones(register_list)) * 4);
+      REQUIRE(state.read_register(irn) == rn + (sign * count_ones(register_list)) * 4);
     }
   }
 };

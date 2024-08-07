@@ -24,9 +24,9 @@ struct SingleDataSwap : public Ins {
       irm(nibbles[0]) { }
 
   void execute(CpuState &state) override {
-    gword_t &rd = state.get_register(ird),
-            rn = state.get_register(irn),
-            rm = state.get_register(irm);
+    gword_t rd,
+            rn = state.read_register(irn),
+            rm = state.read_register(irm);
     if (b) {
       byte temp = state.byte_at(rn);
       state.byte_at(rn) = rm;
@@ -36,6 +36,7 @@ struct SingleDataSwap : public Ins {
       state.at(rn) = rm;
       rd = temp;
     }
+    state.write_register(ird, rd);
   }
 };
 

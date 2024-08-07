@@ -27,10 +27,12 @@ endif()
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 
-add_subdirectory(src)
-
+find_package(spdlog CONFIG REQUIRED)
 find_package(Catch2 3)
 
+add_subdirectory(src)
+
+# Only build tests if Catch2 is available
 IF (Catch2_FOUND)
     add_subdirectory(test)
 ENDIF()
