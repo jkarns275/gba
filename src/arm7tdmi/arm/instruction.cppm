@@ -46,8 +46,7 @@ export {
 
     InsAlg instruction;
 
-    ArmInstruction(u32 instruction)
-        : instruction(UndefinedInstruction(-1)) {
+    ArmInstruction(u32 instruction) : instruction(UndefinedInstruction(-1)) {
       Nibbles nibbles(instruction);
 
       cond = (Cond)nibbles[7];

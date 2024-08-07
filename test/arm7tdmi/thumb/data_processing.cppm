@@ -46,8 +46,8 @@ struct TAddSubRegTest : public TDataProcessingTest<TAddSubReg> {
   u8 irm, irn;
   u32 rm, rn;
 
-  TAddSubRegTest(u8 irm, u32 rm, u8 irn, u32 rn, u8 ird,
-                 u32 input_flags, u32 output_flags)
+  TAddSubRegTest(u8 irm, u32 rm, u8 irn, u32 rn, u8 ird, u32 input_flags,
+                 u32 output_flags)
       : TDataProcessingTest<TAddSubReg>(ird, input_flags, output_flags),
         irm(irm), irn(irn), rm(rm), rn(rn) {}
 
@@ -403,8 +403,8 @@ struct TDataProcessingRegTest : public TDataProcessingTest<TDataProcessing> {
   u8 irms, irdn;
   u32 rms, rdn;
 
-  TDataProcessingRegTest(u8 irms, u32 rms, u8 irdn, u32 rdn,
-                         u32 input_flags, u32 output_flags)
+  TDataProcessingRegTest(u8 irms, u32 rms, u8 irdn, u32 rdn, u32 input_flags,
+                         u32 output_flags)
       : TDataProcessingTest<TDataProcessing>(irdn, input_flags, output_flags),
         irms(irms), irdn(irdn), rms(rms), rdn(rdn) {}
 
@@ -903,8 +903,7 @@ struct TMulTest : public ArmInstructionTestWithFlags<TMul> {
   u8 irm, ird;
   u32 rm, rd;
 
-  TMulTest(u8 irm, u32 rm, u8 ird, u32 rd, u32 input_flags,
-           u32 output_flags)
+  TMulTest(u8 irm, u32 rm, u8 ird, u32 rd, u32 input_flags, u32 output_flags)
       : ArmInstructionTestWithFlags<TMul>(input_flags, output_flags), irm(irm),
         ird(ird), rm(rm), rd(rd) {}
 
@@ -967,8 +966,8 @@ struct TDataProcessingHiRegTest
   u8 irm, irdn;
   u32 rm, rdn;
 
-  TDataProcessingHiRegTest(u8 irm, u32 rm, u8 irdn, u32 rdn,
-                           u32 input_flags, u32 output_flags)
+  TDataProcessingHiRegTest(u8 irm, u32 rm, u8 irdn, u32 rdn, u32 input_flags,
+                           u32 output_flags)
       : TDataProcessingTest<TDataProcessingHiReg>(irdn, input_flags,
                                                   output_flags),
         irm(irm), irdn(irdn), rm(rm), rdn(rdn) {}

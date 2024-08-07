@@ -23,8 +23,8 @@ struct MulShortTest : public ArmInstructionTestWithFlags<MulShort> {
   u8 ird, irn, irs, irm;
   u32 rn, rs, rm;
 
-  MulShortTest(bool a, bool s, u8 ird, u8 irn, u32 rn, u8 irs,
-               u32 rs, u8 irm, u32 rm)
+  MulShortTest(bool a, bool s, u8 ird, u8 irn, u32 rn, u8 irs, u32 rs, u8 irm,
+               u32 rm)
       : ArmInstructionTestWithFlags<MulShort>(0, 0), a(a), s(s), ird(ird),
         irn(irn), irs(irs), irm(irm), rn(rn), rs(rs), rm(rm) {}
 
@@ -104,9 +104,8 @@ struct MulLongTest : public ArmInstructionTestWithFlags<MulLong> {
   u8 ird_msw, ird_lsw, irs, irm;
   u32 rd_msw, rd_lsw, rs, rm;
 
-  MulLongTest(bool u, bool a, bool s, u8 ird_msw, u32 rd_msw,
-              u8 ird_lsw, u32 rd_lsw, u8 irs, u32 rs, u8 irm,
-              u32 rm)
+  MulLongTest(bool u, bool a, bool s, u8 ird_msw, u32 rd_msw, u8 ird_lsw,
+              u32 rd_lsw, u8 irs, u32 rs, u8 irm, u32 rm)
       : ArmInstructionTestWithFlags<MulLong>(0, 0), u(u), a(a), s(s),
         ird_msw(ird_msw), ird_lsw(ird_lsw), irs(irs), irm(irm), rs(rs), rm(rm) {
   }

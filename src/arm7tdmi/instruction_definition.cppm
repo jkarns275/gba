@@ -129,8 +129,7 @@ export {
     IntegralPiece(int nbits, string &&name, u32 iterator_max)
         : NamedInsPiece(nbits, std::move(name)), iterator_min(0),
           iterator_max(iterator_max) {}
-    IntegralPiece(int nbits, string &&name, u32 iterator_min,
-                  u32 iterator_max)
+    IntegralPiece(int nbits, string &&name, u32 iterator_min, u32 iterator_max)
         : NamedInsPiece(nbits, std::move(name)), iterator_min(iterator_min),
           iterator_max(iterator_max) {}
 

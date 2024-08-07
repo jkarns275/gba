@@ -19,8 +19,7 @@ struct SingleDataSwapTest : public ArmInstructionTest<SingleDataSwap> {
   u8 ird, irn, irm;
   u32 rn, rm, value;
 
-  SingleDataSwapTest(bool b, u8 ird, u8 irn, u32 rn, u8 irm,
-                     u32 rm, u32 value)
+  SingleDataSwapTest(bool b, u8 ird, u8 irn, u32 rn, u8 irm, u32 rm, u32 value)
       : ArmInstructionTest<SingleDataSwap>(), b(b), ird(ird), irn(irn),
         irm(irm), rn(rn), rm(rm), value(value) {}
 

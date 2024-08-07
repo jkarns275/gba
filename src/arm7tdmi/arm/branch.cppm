@@ -77,8 +77,7 @@ export {
         offset += u32(l) << 1;
     }
 
-    BranchWithLink(u32 instruction, bool l, bool exchange,
-                   i32 offset)
+    BranchWithLink(u32 instruction, bool l, bool exchange, i32 offset)
         : Ins(instruction), l(l), exchange(exchange), offset(offset) {}
 
     void execute(CpuState &state) override {

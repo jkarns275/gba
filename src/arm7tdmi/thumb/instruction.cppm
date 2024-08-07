@@ -11,9 +11,7 @@ using std::variant;
 
 export typedef DataProcessing::Opcode Opcode;
 
-constexpr u8 thumb_reg(u16 ins, u8 start) {
-  return (ins >> start) & 0x7;
-}
+constexpr u8 thumb_reg(u16 ins, u8 start) { return (ins >> start) & 0x7; }
 
 static constexpr u16 OPC_MASK = flag_mask(9);
 static constexpr Opcode OPCODE_MAP_ADD_SUB[2] = {Opcode::ADD, Opcode::SUB};

@@ -23,8 +23,8 @@ template <typename I> struct LoadStoreBaseTest : public ArmInstructionTest<I> {
   u32 rn;
   u32 address, offset, value;
 
-  LoadStoreBaseTest(bool p, bool u, bool w, bool l, u8 ird, u8 irn,
-                    u32 rn, u32 offset, u32 value)
+  LoadStoreBaseTest(bool p, bool u, bool w, bool l, u8 ird, u8 irn, u32 rn,
+                    u32 offset, u32 value)
       : ArmInstructionTest<I>(), p(p), u(u), w(w), l(l), ird(ird), irn(irn),
         rn(rn), offset(offset), value(value) {
     if (p) {
@@ -97,8 +97,7 @@ struct AddrMode3RegOffset : public AddressingModeFixture {
 struct AddrMode2ImmOffset : public AddressingModeFixture {
   u32 offset;
 
-  AddrMode2ImmOffset(u32 offset)
-      : AddressingModeFixture(), offset(offset) {}
+  AddrMode2ImmOffset(u32 offset) : AddressingModeFixture(), offset(offset) {}
 
   void prepare_state(CpuState &state,
                      unordered_map<string, u32> &value_map) override {
@@ -140,8 +139,7 @@ struct LoadOffsetTest : public LoadStoreBaseTest<LoadStoreOffset> {
   AddressingModeFixture &addressing_mode;
 
   LoadOffsetTest(bool p, bool u, bool b, bool w, u8 ird, u8 irn, u32 rn,
-                 u32 offset, u32 value,
-                 AddressingModeFixture &addressing_mode)
+                 u32 offset, u32 value, AddressingModeFixture &addressing_mode)
       : LoadStoreBaseTest<LoadStoreOffset>(p, u, w, true, ird, irn, rn, offset,
                                            value),
         b(b), addressing_mode(addressing_mode) {}
@@ -267,9 +265,8 @@ struct StoreOffsetTest : public LoadStoreBaseTest<LoadStoreOffset> {
   bool b;
   AddressingModeFixture &addressing_mode;
 
-  StoreOffsetTest(bool p, bool u, bool b, bool w, u8 ird, u8 irn,
-                  u32 rn, u32 offset, u32 value,
-                  AddressingModeFixture &addressing_mode)
+  StoreOffsetTest(bool p, bool u, bool b, bool w, u8 ird, u8 irn, u32 rn,
+                  u32 offset, u32 value, AddressingModeFixture &addressing_mode)
       : LoadStoreBaseTest<LoadStoreOffset>(p, u, w, false, ird, irn, rn, offset,
                                            value),
         b(b), addressing_mode(addressing_mode) {}
@@ -339,9 +336,8 @@ struct LoadTest : public LoadStoreBaseTest<LoadStore> {
     return ((u32)p) + ((u32)u << 1);
   }
 
-  LoadTest(bool s, bool h, bool p, bool u, bool w, u8 ird, u8 irn,
-           u32 rn, u32 offset, u32 value,
-           AddressingModeFixture &addressing_mode)
+  LoadTest(bool s, bool h, bool p, bool u, bool w, u8 ird, u8 irn, u32 rn,
+           u32 offset, u32 value, AddressingModeFixture &addressing_mode)
       : LoadStoreBaseTest<LoadStore>(p, u, w, true, ird, irn, rn, offset,
                                      value),
         s(s), h(h), addressing_mode(addressing_mode) {}
@@ -471,9 +467,8 @@ struct StoreTest : public LoadStoreBaseTest<LoadStore> {
     return ((u32)p) + ((u32)u << 1);
   }
 
-  StoreTest(bool s, bool h, bool p, bool u, bool w, u8 ird, u8 irn,
-            u32 rn, u32 offset, u32 value,
-            AddressingModeFixture &addressing_mode)
+  StoreTest(bool s, bool h, bool p, bool u, bool w, u8 ird, u8 irn, u32 rn,
+            u32 offset, u32 value, AddressingModeFixture &addressing_mode)
       : LoadStoreBaseTest<LoadStore>(p, u, w, false, ird, irn, rn, offset,
                                      value),
         s(s), h(h), addressing_mode(addressing_mode) {}
@@ -567,9 +562,8 @@ struct LoadStoreMultipleTest
   u32 rn;
   u16 register_list;
 
-  LoadStoreMultipleTest(bool p, bool u, bool s, bool w, bool l, u8 irn,
-                        u32 rn, u16 register_list, u32 input_flags,
-                        u32 output_flags)
+  LoadStoreMultipleTest(bool p, bool u, bool s, bool w, bool l, u8 irn, u32 rn,
+                        u16 register_list, u32 input_flags, u32 output_flags)
       : ArmInstructionTestWithFlags<LoadStoreMultiple>(input_flags,
                                                        output_flags),
         p(p), u(u), s(s), w(w), l(l), irn(irn), rn(rn),
@@ -598,8 +592,8 @@ struct LoadStoreMultipleTest
 struct StoreMultipleTest : public LoadStoreMultipleTest {
   u32 start_address;
   StoreMultipleTest(bool p, bool u, bool s, bool w, u8 irn, u32 rn,
-                    u16 register_list, u32 start_address,
-                    u32 input_flags, u32 output_flags)
+                    u16 register_list, u32 start_address, u32 input_flags,
+                    u32 output_flags)
       : LoadStoreMultipleTest(p, u, s, w, false, irn, rn, register_list,
                               input_flags, output_flags),
         start_address(start_address) {}
@@ -697,8 +691,8 @@ TEST_CASE("STM") {
 struct LoadMultipleTest : public LoadStoreMultipleTest {
   u32 start_address;
   LoadMultipleTest(bool p, bool u, bool s, bool w, u8 irn, u32 rn,
-                   u16 register_list, u32 start_address,
-                   u32 input_flags, u32 output_flags)
+                   u16 register_list, u32 start_address, u32 input_flags,
+                   u32 output_flags)
       : LoadStoreMultipleTest(p, u, s, w, true, irn, rn, register_list,
                               input_flags, output_flags),
         start_address(start_address) {}

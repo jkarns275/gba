@@ -22,8 +22,8 @@ struct TShiftImmTest : public ArmInstructionTestWithFlags<TShiftImm> {
   u32 rm;
   u8 ird;
 
-  TShiftImmTest(u8 opcode, u8 imm, u8 irm, u32 rm, u8 ird,
-                u32 input_flags, u32 output_flags)
+  TShiftImmTest(u8 opcode, u8 imm, u8 irm, u32 rm, u8 ird, u32 input_flags,
+                u32 output_flags)
       : ArmInstructionTestWithFlags<TShiftImm>(input_flags, output_flags),
         opcode(opcode), imm(imm), irm(irm), rm(rm), ird(ird) {}
 

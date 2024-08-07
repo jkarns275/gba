@@ -26,14 +26,13 @@ export {
         : Ins(instruction), a(MASK_A & instruction), s(MASK_S & instruction),
           ird(nibbles[4]), irn(nibbles[3]), irs(nibbles[2]), irm(nibbles[0]) {}
 
-    MulShort(u32 instruction, bool a, bool s, u8 ird, u8 irn, u8 irs,
-             u8 irm)
+    MulShort(u32 instruction, bool a, bool s, u8 ird, u8 irn, u8 irs, u8 irm)
         : Ins(instruction), a(a), s(s), ird(ird), irn(irn), irs(irs), irm(irm) {
     }
 
     void execute(CpuState &state) override {
       u32 rn = state.read_register(irn), rs = state.read_register(irs),
-              rm = state.read_register(irm);
+          rm = state.read_register(irm);
 
       u32 value;
 
@@ -76,8 +75,8 @@ export {
 
     void execute(CpuState &state) override {
       u32 rd_lo = state.read_register(ird_lsw),
-              rd_hi = state.read_register(ird_msw),
-              rs = state.read_register(irs), rm = state.read_register(irm);
+          rd_hi = state.read_register(ird_msw), rs = state.read_register(irs),
+          rm = state.read_register(irm);
 
       if (u) {
         // Unsigned

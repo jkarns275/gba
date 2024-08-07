@@ -8,27 +8,27 @@ struct Memory {
   static const u32 MEMORY_OFFSET_MASK = ~0xFF000000;
   static const u32 MEMORY_BLOCK_MASK = 0xFF000000;
 
-  static const u32 SYSTEM_ROM_BASE   = 0x00000000;
-  static const u32 SYSTEM_ROM_SIZE   = 0x4000;
-  
-  static const u32 EW_RAM_BASE       = 0x02000000;
-  static const u32 EW_RAM_SIZE       = 0x40000;
-  
-  static const u32 IW_RAM_BASE       = 0x03000000;
-  static const u32 IW_RAM_SIZE       = 0x8000;
-  
-  static const u32 IO_RAM_BASE       = 0x04000000;
-  static const u32 IO_RAM_SIZE       = 0x400;
-  
-  static const u32 PALETTE_RAM_BASE  = 0x05000000;
-  static const u32 PALETTE_RAM_SIZE  = 0x400;
-  
-  static const u32 VIDEO_RAM_BASE    = 0x06000000;
-  static const u32 VIDEO_RAM_SIZE    = 0x18000;
-  
-  static const u32 OAM_BASE          = 0x07000000;
-  static const u32 OAM_SIZE          = 0x400;
-  
+  static const u32 SYSTEM_ROM_BASE = 0x00000000;
+  static const u32 SYSTEM_ROM_SIZE = 0x4000;
+
+  static const u32 EW_RAM_BASE = 0x02000000;
+  static const u32 EW_RAM_SIZE = 0x40000;
+
+  static const u32 IW_RAM_BASE = 0x03000000;
+  static const u32 IW_RAM_SIZE = 0x8000;
+
+  static const u32 IO_RAM_BASE = 0x04000000;
+  static const u32 IO_RAM_SIZE = 0x400;
+
+  static const u32 PALETTE_RAM_BASE = 0x05000000;
+  static const u32 PALETTE_RAM_SIZE = 0x400;
+
+  static const u32 VIDEO_RAM_BASE = 0x06000000;
+  static const u32 VIDEO_RAM_SIZE = 0x18000;
+
+  static const u32 OAM_BASE = 0x07000000;
+  static const u32 OAM_SIZE = 0x400;
+
   static const u32 GAME_PAK_ROM_BASE = 0x08000000;
   static const u32 GAME_PAK_IMAGE_1_BASE = 0x0A000000;
   static const u32 GAME_PAK_IMAGE_2_BASE = 0x0C000000;
@@ -45,9 +45,7 @@ struct Memory {
   u8 oam[OAM_SIZE];
   u8 game_pak_rom[GAME_PAK_ROM_SIZE];
 
-  void invalid_read(u32 addr) {
-    throw addr;
-  }
+  void invalid_read(u32 addr) { throw addr; }
 
   u32 read(u32 addr) {
     /**

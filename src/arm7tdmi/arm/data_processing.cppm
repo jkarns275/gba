@@ -24,7 +24,7 @@ export {
       u32 result = x + y;
       u32 carry = result < x;
       u32 overflow = (x & GWORD_T_SIGN_BIT) == (y & GWORD_T_SIGN_BIT) &&
-                         (result & GWORD_T_SIGN_BIT) != (x & GWORD_T_SIGN_BIT);
+                     (result & GWORD_T_SIGN_BIT) != (x & GWORD_T_SIGN_BIT);
       return {result, carry, overflow};
     }
 
@@ -32,7 +32,7 @@ export {
       u32 result = x - y;
       u32 carry = result > x;
       u32 overflow = (x & GWORD_T_SIGN_BIT) != (y & GWORD_T_SIGN_BIT) &&
-                         (result & GWORD_T_SIGN_BIT) != (x & GWORD_T_SIGN_BIT);
+                     (result & GWORD_T_SIGN_BIT) != (x & GWORD_T_SIGN_BIT);
       return {result, carry, overflow};
     }
   };
@@ -112,8 +112,8 @@ export {
           s(S_FLAG & instruction), irn(nibbles[4]), ird(nibbles[3]),
           operand(make_operand(instruction)) {}
 
-    DataProcessing(u32 instruction, Opcode opcode, bool s, u8 irn,
-                   u8 ird, Operand operand)
+    DataProcessing(u32 instruction, Opcode opcode, bool s, u8 irn, u8 ird,
+                   Operand operand)
         : Ins(instruction), opcode(opcode), s(s), irn(irn), ird(ird),
           operand(operand) {}
 
@@ -259,8 +259,8 @@ export {
         set_flags:
           cpsr &= ~cond_code_mask;
           u32 mask = (rd == 0 ? Z_FLAG : 0) |
-                         (rd & GWORD_T_SIGN_BIT ? N_FLAG : 0) |
-                         (overflow ? V_FLAG : 0) | (carry ? C_FLAG : 0);
+                     (rd & GWORD_T_SIGN_BIT ? N_FLAG : 0) |
+                     (overflow ? V_FLAG : 0) | (carry ? C_FLAG : 0);
           cpsr |= mask & cond_code_mask;
         }
 

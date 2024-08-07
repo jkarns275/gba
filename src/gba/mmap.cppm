@@ -63,8 +63,7 @@ struct Memory {
      *   Palette RAM   16    8/16/32   16/32     1/1/2 *
      *   VRAM          16    8/16/32   16/32     1/1/2 *
      *   GamePak ROM   16    8/16/32   -         5/5/8 **/
-        ****GamePak Flash 16 8 /
-        16 / 32 16 / 32 5 / 5 / 8 *
+    ****GamePak Flash 16 8 / 16 / 32 16 / 32 5 / 5 / 8 *
         * /***
            *   GamePak SRAM  8     8         8         5     **
            *
@@ -78,7 +77,7 @@ struct Memory {
         u32 loc = addr & MEMORY_BLOCK_MASK;
     u32 offset = addr &
 
-                     switch (loc) {
+                 switch (loc) {
     case SYSTEM_ROM_BASE:
       // TODO: If we read past 0x0003FFF, we need to return the next
       // instruction. for some reason that is what the console does.

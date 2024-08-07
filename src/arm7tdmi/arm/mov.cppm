@@ -96,9 +96,9 @@ export {
       assert(!(integral_type == BYTE && !s));
     }
 
-    LoadStore(u32 instruction, bool p, bool u, bool w, bool l, bool s,
-              u8 irn, u8 ird, IntegralType integral_type,
-              OffsetType offset_type, u8 operand)
+    LoadStore(u32 instruction, bool p, bool u, bool w, bool l, bool s, u8 irn,
+              u8 ird, IntegralType integral_type, OffsetType offset_type,
+              u8 operand)
         : Ins(instruction), p(p), u(u), w(w), l(l), s(s), irn(irn), ird(ird),
           integral_type(integral_type), offset_type(offset_type),
           operand(operand) {}
@@ -139,7 +139,7 @@ export {
     }
 
     static constexpr u32 switch_pair(IntegralType integral_type,
-                                         bool is_signed) {
+                                     bool is_signed) {
       return (u32)integral_type | ((u32)is_signed * 16);
     }
 
@@ -465,8 +465,8 @@ export {
           l(instruction & MASK_L), irn(nibbles[4]),
           register_list(instruction & 0xFFFF) {}
 
-    LoadStoreMultiple(u32 instruction, bool p, bool u, bool s, bool w,
-                      bool l, u8 irn, u16 register_list)
+    LoadStoreMultiple(u32 instruction, bool p, bool u, bool s, bool w, bool l,
+                      u8 irn, u16 register_list)
         : Ins(instruction), p(p), u(u), s(s), w(w), l(l), irn(irn),
           register_list(register_list) {}
 

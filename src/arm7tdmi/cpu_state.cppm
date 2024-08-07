@@ -133,9 +133,7 @@ export {
       return ((i64 *)data)[addr / 8];
     }
 
-    u32 &at(u32 addr, Mode mode) override {
-      return ((u32 *)data)[addr / 4];
-    }
+    u32 &at(u32 addr, Mode mode) override { return ((u32 *)data)[addr / 4]; }
     i32 &signed_at(u32 addr, Mode mode) override {
       return ((i32 *)data)[addr / 4];
     }
@@ -148,9 +146,7 @@ export {
     }
 
     u8 &u8_at(u32 addr, Mode mode) override { return data[addr]; }
-    i8 &i8_at(u32 addr, Mode mode) override {
-      return ((i8 *)data)[addr];
-    }
+    i8 &i8_at(u32 addr, Mode mode) override { return ((i8 *)data)[addr]; }
   };
 
   struct CpuState {
@@ -185,8 +181,7 @@ export {
 
     u32 cpsr = 0;
 
-    u32 spsr_fiq = 0, spsr_svc = 0, spsr_abt = 0, spsr_irq = 0,
-            spsr_und = 0;
+    u32 spsr_fiq = 0, spsr_svc = 0, spsr_abt = 0, spsr_irq = 0, spsr_und = 0;
 
     Memory &memory;
 
@@ -270,9 +265,7 @@ export {
       }
     }
 
-    u32 read_register(u32 index) {
-      return read_register(index, get_mode());
-    }
+    u32 read_register(u32 index) { return read_register(index, get_mode()); }
 
     void write_register(u32 index, u32 value, Mode mode) {
       u32 &reg = get_register(index, mode);
@@ -296,9 +289,7 @@ export {
       spsr = new_spsr;
     }
 
-    inline void write_spsr(u32 new_spsr) {
-      write_spsr(new_spsr, get_mode());
-    }
+    inline void write_spsr(u32 new_spsr) { write_spsr(new_spsr, get_mode()); }
 
     Mode get_mode() { return (Mode)(USR | (cpsr & MODE_MASK)); }
 
@@ -387,9 +378,7 @@ export {
       }
     }
 
-    inline u64 &long_at(u32 addr) {
-      return memory.long_at(addr, get_mode());
-    }
+    inline u64 &long_at(u32 addr) { return memory.long_at(addr, get_mode()); }
 
     inline i64 &signed_long_at(u32 addr) {
       return memory.signed_long_at(addr, get_mode());
@@ -401,21 +390,15 @@ export {
       return memory.signed_at(addr, get_mode());
     }
 
-    inline u16 &short_at(u32 addr) {
-      return memory.short_at(addr, get_mode());
-    }
+    inline u16 &short_at(u32 addr) { return memory.short_at(addr, get_mode()); }
 
     inline i16 &signed_short_at(u32 addr) {
       return memory.signed_short_at(addr, get_mode());
     }
 
-    inline u8 &u8_at(u32 addr) {
-      return memory.u8_at(addr, get_mode());
-    }
+    inline u8 &u8_at(u32 addr) { return memory.u8_at(addr, get_mode()); }
 
-    inline i8 &i8_at(u32 addr) {
-      return memory.i8_at(addr, get_mode());
-    }
+    inline i8 &i8_at(u32 addr) { return memory.i8_at(addr, get_mode()); }
 
     inline u32 rotated_at(u32 addr) {
       return memory.rotated_at(addr, get_mode());

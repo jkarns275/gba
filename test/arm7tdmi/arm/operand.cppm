@@ -262,8 +262,8 @@ TEST_CASE("RegShiftOperand::LRIGHT") {
                                     {1, 1});
     test_flag_2.test();
 
-    RegShiftOperandTest test_flag_4(IRS, 32, IRM, (u32)-1, 0,
-                                    BitShift::LRIGHT, {0, 1});
+    RegShiftOperandTest test_flag_4(IRS, 32, IRM, (u32)-1, 0, BitShift::LRIGHT,
+                                    {0, 1});
     test_flag_4.test();
   }
 }
@@ -297,8 +297,8 @@ TEST_CASE("RegShiftOperand::ARIGHT") {
                                     {1, 1});
     test_flag_2.test();
 
-    RegShiftOperandTest test_flag_4(IRS, 32, IRM, (u32)-1, 0,
-                                    BitShift::ARIGHT, {0xFFFFFFFF, 1});
+    RegShiftOperandTest test_flag_4(IRS, 32, IRM, (u32)-1, 0, BitShift::ARIGHT,
+                                    {0xFFFFFFFF, 1});
     test_flag_4.test();
   }
 }
@@ -313,8 +313,8 @@ TEST_CASE("RegShiftOperand::ROR") {
     test_normal.test();
 
     auto imm = GENERATE(range(1, 31));
-    RegShiftOperandTest test_normal_2(IRS, imm, IRM, (u32)-1, 0,
-                                      BitShift::ROR, {(u32)-1, 1});
+    RegShiftOperandTest test_normal_2(IRS, imm, IRM, (u32)-1, 0, BitShift::ROR,
+                                      {(u32)-1, 1});
     test_normal_2.test();
   }
 

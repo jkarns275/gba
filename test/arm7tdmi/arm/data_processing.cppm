@@ -20,8 +20,7 @@ using std::vector;
 
 using Opcode = DataProcessing::Opcode;
 
-void set_imm_rotate(unordered_map<string, u32> &values, u32 imm,
-                    u32 rotate) {
+void set_imm_rotate(unordered_map<string, u32> &values, u32 imm, u32 rotate) {
   values["imm"] = imm;
   values["rotate"] = rotate;
 }
@@ -38,8 +37,8 @@ struct DataProcessingTest : public ArmInstructionTestWithFlags<DataProcessing> {
   u8 irn, ird;
   u32 rn;
 
-  DataProcessingTest(bool s, u8 irn, u8 ird, u32 rn,
-                     u32 input_flags, u32 output_flags)
+  DataProcessingTest(bool s, u8 irn, u8 ird, u32 rn, u32 input_flags,
+                     u32 output_flags)
       : ArmInstructionTestWithFlags<DataProcessing>(input_flags, output_flags),
         s(s), irn(irn), ird(ird), rn(rn) {}
 
@@ -80,8 +79,7 @@ template <u8 Opcode> struct RegShiftTest : public DataProcessingTest<Opcode> {
   u32 rm;
 
   RegShiftTest(bool s, u8 irn, u8 ird, u32 rn, u32 input_flags,
-               u32 output_flags, u8 irs, u32 rs, BitShift shift,
-               u8 irm, u32 rm)
+               u32 output_flags, u8 irs, u32 rs, BitShift shift, u8 irm, u32 rm)
       : DataProcessingTest<Opcode>(s, irn, ird, rn, input_flags, output_flags),
         irs(irs), rs(rs), shift(shift), irm(irm), rm(rm) {}
 
@@ -122,8 +120,7 @@ template <u8 Opcode> void no_flag_tests_reg_shift() {
   test_with_carry.test();
 }
 
-template <u8 Opcode>
-struct ImmRotateTest : public DataProcessingTest<Opcode> {
+template <u8 Opcode> struct ImmRotateTest : public DataProcessingTest<Opcode> {
   u8 rotate_imm, imm8;
 
   ImmRotateTest(bool s, u8 irn, u8 ird, u32 rn, u32 input_flags,
@@ -169,8 +166,7 @@ template <u8 Opcode> struct ImmShiftTest : public DataProcessingTest<Opcode> {
   u32 rm;
 
   ImmShiftTest(bool s, u8 irn, u8 ird, u32 rn, u32 input_flags,
-               u32 output_flags, u8 shift_imm, BitShift shift, u8 irm,
-               u32 rm)
+               u32 output_flags, u8 shift_imm, BitShift shift, u8 irm, u32 rm)
       : DataProcessingTest<Opcode>(s, irn, ird, rn, input_flags, output_flags),
         shift_imm(shift_imm), shift(shift), irm(irm), rm(rm) {}
 
@@ -217,7 +213,7 @@ template <u8 Opcode> void no_flag_tests_imm_shift() {
 
 template <>
 u32 Mock<Opcode::ADC>::expected_value(DataProcessingTest<Opcode::ADC> &d,
-                                          CpuState &state) {
+                                      CpuState &state) {
   return state.read_register(d.irn) + d.calculate_operand(state).value +
          bool((u32)d.input_flags & CpuState::C_FLAG);
 }
@@ -294,7 +290,7 @@ TEST_CASE("ADC (imm rot)") {
 
 template <>
 u32 Mock<Opcode::ADD>::expected_value(DataProcessingTest<Opcode::ADD> &d,
-                                          CpuState &state) {
+                                      CpuState &state) {
   return state.read_register(d.irn) + d.calculate_operand(state).value;
 }
 
@@ -370,7 +366,7 @@ TEST_CASE("ADD (imm rot)") {
 
 template <>
 u32 Mock<Opcode::AND>::expected_value(DataProcessingTest<Opcode::AND> &d,
-                                          CpuState &state) {
+                                      CpuState &state) {
   return state.read_register(d.irn) & d.calculate_operand(state).value;
 }
 
@@ -382,7 +378,7 @@ TEST_CASE("AND (imm rot)") { no_flag_tests_imm_rotate<Opcode::AND>(); }
 
 template <>
 u32 Mock<Opcode::BIC>::expected_value(DataProcessingTest<Opcode::BIC> &d,
-                                          CpuState &state) {
+                                      CpuState &state) {
   return state.read_register(d.irn) & ~d.calculate_operand(state).value;
 }
 
@@ -394,7 +390,7 @@ TEST_CASE("BIC (imm rot)") { no_flag_tests_imm_rotate<Opcode::BIC>(); }
 
 template <>
 u32 Mock<Opcode::EOR>::expected_value(DataProcessingTest<Opcode::EOR> &d,
-                                          CpuState &state) {
+                                      CpuState &state) {
   return state.read_register(d.irn) ^ d.calculate_operand(state).value;
 }
 
@@ -406,7 +402,7 @@ TEST_CASE("OR (imm rot)") { no_flag_tests_imm_rotate<Opcode::EOR>(); }
 
 template <>
 u32 Mock<Opcode::MOV>::expected_value(DataProcessingTest<Opcode::MOV> &d,
-                                          CpuState &state) {
+                                      CpuState &state) {
   return d.calculate_operand(state).value;
 }
 
@@ -419,7 +415,7 @@ TEST_CASE("MOV (imm rot)") { no_flag_tests_imm_rotate<Opcode::MOV>(); }
 
 template <>
 u32 Mock<Opcode::MVN>::expected_value(DataProcessingTest<Opcode::MVN> &d,
-                                          CpuState &state) {
+                                      CpuState &state) {
   return ~d.calculate_operand(state).value;
 }
 
@@ -431,7 +427,7 @@ TEST_CASE("MVN (imm rot)") { no_flag_tests_imm_rotate<Opcode::MVN>(); }
 
 template <>
 u32 Mock<Opcode::ORR>::expected_value(DataProcessingTest<Opcode::ORR> &d,
-                                          CpuState &state) {
+                                      CpuState &state) {
   return state.read_register(d.irn) | d.calculate_operand(state).value;
 }
 
@@ -443,7 +439,7 @@ TEST_CASE("ORR (imm rot)") { no_flag_tests_imm_rotate<Opcode::ORR>(); }
 
 template <>
 u32 Mock<Opcode::RSB>::expected_value(DataProcessingTest<Opcode::RSB> &d,
-                                          CpuState &state) {
+                                      CpuState &state) {
   return d.calculate_operand(state).value - state.read_register(d.irn);
 }
 
@@ -455,7 +451,7 @@ TEST_CASE("RSB (imm rot)") { no_flag_tests_imm_rotate<Opcode::RSB>(); }
 
 template <>
 u32 Mock<Opcode::RSC>::expected_value(DataProcessingTest<Opcode::RSC> &d,
-                                          CpuState &state) {
+                                      CpuState &state) {
   return d.calculate_operand(state).value - state.read_register(d.irn) -
          !bool(d.input_flags & CpuState::C_FLAG);
 }
@@ -497,7 +493,7 @@ TEST_CASE("RSC (imm rot)") { no_flag_tests_imm_rotate<Opcode::RSC>(); }
 
 template <>
 u32 Mock<Opcode::SBC>::expected_value(DataProcessingTest<Opcode::SBC> &d,
-                                          CpuState &state) {
+                                      CpuState &state) {
   return state.read_register(d.irn) - d.calculate_operand(state).value -
          !bool(d.input_flags & CpuState::C_FLAG);
 }
@@ -537,7 +533,7 @@ TEST_CASE("SBC (imm rot)") { no_flag_tests_imm_rotate<Opcode::SBC>(); }
 
 template <>
 u32 Mock<Opcode::SUB>::expected_value(DataProcessingTest<Opcode::SUB> &d,
-                                          CpuState &state) {
+                                      CpuState &state) {
   return state.read_register(d.irn) - d.calculate_operand(state).value;
 }
 
@@ -577,7 +573,7 @@ TEST_CASE("SUB (imm rot)") { no_flag_tests_imm_rotate<Opcode::SUB>(); }
 
 template <>
 u32 Mock<Opcode::CMN>::expected_value(DataProcessingTest<Opcode::CMN> &d,
-                                          CpuState &state) {
+                                      CpuState &state) {
   return state.read_register(d.ird);
 }
 
@@ -620,7 +616,7 @@ TEST_CASE("CMN (reg shift)") {
 
 template <>
 u32 Mock<Opcode::CMP>::expected_value(DataProcessingTest<Opcode::CMP> &d,
-                                          CpuState &state) {
+                                      CpuState &state) {
   return state.read_register(d.ird);
 }
 
@@ -669,7 +665,7 @@ TEST_CASE("CMP (reg shift)") {
 
 template <>
 u32 Mock<Opcode::TEQ>::expected_value(DataProcessingTest<Opcode::TEQ> &d,
-                                          CpuState &state) {
+                                      CpuState &state) {
   return state.read_register(d.ird);
 }
 

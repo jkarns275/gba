@@ -9,12 +9,7 @@ import arm7tdmi.instruction;
 export {
   ;
 
-  enum BitShift : u8 {
-    LEFT = 0b00,
-    LRIGHT = 0b01,
-    ARIGHT = 0b10,
-    ROR = 0b11
-  };
+  enum BitShift : u8 { LEFT = 0b00, LRIGHT = 0b01, ARIGHT = 0b10, ROR = 0b11 };
 
   struct ShifterOperandValue {
     u32 value;
@@ -28,8 +23,7 @@ export {
   struct RotateOperand : public ShifterOperand {
     u8 rotate, imm;
 
-    RotateOperand(u8 rotate, u8 imm)
-        : rotate(rotate & 0xF), imm(imm & 0xFF) {}
+    RotateOperand(u8 rotate, u8 imm) : rotate(rotate & 0xF), imm(imm & 0xFF) {}
 
     RotateOperand(u32 instruction) {
       Nibbles nibbles(instruction);
