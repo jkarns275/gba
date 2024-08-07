@@ -16,11 +16,11 @@ import test.arm7tdmi.test_utils;
 
 struct SingleDataSwapTest : public ArmInstructionTest<SingleDataSwap> {
   bool b;
-  byte ird, irn, irm;
-  gword_t rn, rm, value;
+  u8 ird, irn, irm;
+  u32 rn, rm, value;
 
-  SingleDataSwapTest(bool b, byte ird, byte irn, gword_t rn, byte irm,
-                     gword_t rm, gword_t value)
+  SingleDataSwapTest(bool b, u8 ird, u8 irn, u32 rn, u8 irm,
+                     u32 rm, u32 value)
       : ArmInstructionTest<SingleDataSwap>(), b(b), ird(ird), irn(irn),
         irm(irm), rn(rn), rm(rm), value(value) {}
 
@@ -35,7 +35,7 @@ struct SingleDataSwapTest : public ArmInstructionTest<SingleDataSwap> {
     state.write_register(irm, rm);
 
     if (b) {
-      state.byte_at(rn) = value;
+      state.u8_at(rn) = value;
     } else {
       state.at(rn) = value;
     }
@@ -49,9 +49,9 @@ struct SingleDataSwapTest : public ArmInstructionTest<SingleDataSwap> {
   void check_requirements(CpuState &state) override {
     if (b) {
       REQUIRE(state.read_register(ird) == (value & 0xFF));
-      REQUIRE(state.byte_at(rn) == (rm & 0xFF));
+      REQUIRE(state.u8_at(rn) == (rm & 0xFF));
     } else {
-      gword_t target_data = ror<gword_t>(value, (rn & 0b11) * 8);
+      u32 target_data = ror<u32>(value, (rn & 0b11) * 8);
       REQUIRE(state.read_register(ird) == target_data);
       REQUIRE(state.at(rn) == rm);
     }
@@ -59,14 +59,14 @@ struct SingleDataSwapTest : public ArmInstructionTest<SingleDataSwap> {
 };
 
 TEST_CASE("SWP") {
-  const gword_t IRM = 0;
-  const gword_t IRD = 1;
-  const gword_t IRN = 2;
+  const u32 IRM = 0;
+  const u32 IRD = 1;
+  const u32 IRN = 2;
 
   const bool b = false;
 
-  auto rm = GENERATE(take(100, random<gword_t>(0, -1)));
-  auto value = GENERATE(take(100, random<gword_t>(0, -1)));
+  auto rm = GENERATE(take(100, random<u32>(0, -1)));
+  auto value = GENERATE(take(100, random<u32>(0, -1)));
   auto rn = GENERATE(0x100, 0x101, 0x102, 0x103);
 
   SingleDataSwapTest test(b, IRD, IRN, rn, IRM, rm, value);
@@ -74,9 +74,9 @@ TEST_CASE("SWP") {
 }
 
 TEST_CASE("SWPB") {
-  const gword_t IRM = 0;
-  const gword_t IRD = 1;
-  const gword_t IRN = 2;
+  const u32 IRM = 0;
+  const u32 IRD = 1;
+  const u32 IRN = 2;
 
   const bool b = false;
 

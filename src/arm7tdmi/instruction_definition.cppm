@@ -22,19 +22,19 @@ export {
   ;
 
   struct biterator {
-    gword_t min;
-    gword_t max;
-    gword_t i;
+    u32 min;
+    u32 max;
+    u32 i;
 
-    biterator(gword_t min, gword_t max) : min(min), max(max), i(min) {}
-    biterator(gword_t max) : min(0), max(max), i(min) {}
+    biterator(u32 min, u32 max) : min(min), max(max), i(min) {}
+    biterator(u32 max) : min(0), max(max), i(min) {}
 
     biterator &step() {
       i += 1;
       return *this;
     }
 
-    optional<gword_t> get() {
+    optional<u32> get() {
       if (i >= min && i < max)
         return i;
       else {
@@ -46,27 +46,27 @@ export {
   };
 
   struct DecodedPiece {
-    const gword_t piece, length;
+    const u32 piece, length;
     string name;
 
-    DecodedPiece(gword_t piece, gword_t length, string name)
+    DecodedPiece(u32 piece, u32 length, string name)
         : piece(piece), length(length), name(std::move(name)) {}
   };
 
   struct InsPiece {
-    const gword_t nbits;
+    const u32 nbits;
 
-    InsPiece(gword_t nbits) : nbits(nbits) {}
+    InsPiece(u32 nbits) : nbits(nbits) {}
 
-    virtual void build(unordered_map<string, gword_t> &values,
-                       gword_t &instruction) const = 0;
-    virtual bool advance(vector<DecodedPiece> &pieces, gword_t &instruction,
-                         gword_t &bits_consumed) = 0;
+    virtual void build(unordered_map<string, u32> &values,
+                       u32 &instruction) const = 0;
+    virtual bool advance(vector<DecodedPiece> &pieces, u32 &instruction,
+                         u32 &bits_consumed) = 0;
     virtual optional<string> get_name() const { return std::nullopt; }
 
     virtual biterator iterator() { return biterator(2); }
 
-    virtual gword_t get_instruction_size() const { return 32; }
+    virtual u32 get_instruction_size() const { return 32; }
 
     virtual ~InsPiece() {}
   };
@@ -74,7 +74,7 @@ export {
   struct NamedInsPiece : public InsPiece {
     const string name;
 
-    NamedInsPiece(gword_t nbits, string &&name) : InsPiece(nbits), name(name) {}
+    NamedInsPiece(u32 nbits, string &&name) : InsPiece(nbits), name(name) {}
 
     optional<string> get_name() const override { return name; }
   };
@@ -82,26 +82,26 @@ export {
   struct TNamedInsPiece : public NamedInsPiece {
     using NamedInsPiece::NamedInsPiece;
 
-    gword_t get_instruction_size() const override { return 16; }
+    u32 get_instruction_size() const override { return 16; }
   };
 
   struct BoolPiece : public NamedInsPiece {
 
     BoolPiece(string &&name) : NamedInsPiece(1, std::move(name)) {}
 
-    void build(unordered_map<string, gword_t> &values,
-               gword_t &instruction) const override {
+    void build(unordered_map<string, u32> &values,
+               u32 &instruction) const override {
       bool v = bool(values.at(name));
       instruction <<= 1;
       instruction |= v;
     }
 
-    bool advance(vector<DecodedPiece> &pieces, gword_t &instruction,
-                 gword_t &bits_consumed) override {
+    bool advance(vector<DecodedPiece> &pieces, u32 &instruction,
+                 u32 &bits_consumed) override {
       if (bits_consumed + 1 > get_instruction_size())
         return false;
 
-      gword_t bit = instruction & 1;
+      u32 bit = instruction & 1;
       pieces.emplace_back(bit, 1, name);
 
       instruction >>= 1;
@@ -118,28 +118,28 @@ export {
   struct TBoolPiece : public BoolPiece {
     using BoolPiece::BoolPiece;
 
-    gword_t get_instruction_size() const override { return 16; }
+    u32 get_instruction_size() const override { return 16; }
   };
 
   struct IntegralPiece : public NamedInsPiece {
-    gword_t iterator_min, iterator_max;
+    u32 iterator_min, iterator_max;
 
     IntegralPiece(int nbits, string &&name)
         : NamedInsPiece(nbits, std::move(name)), iterator_max(1 << nbits) {}
-    IntegralPiece(int nbits, string &&name, gword_t iterator_max)
+    IntegralPiece(int nbits, string &&name, u32 iterator_max)
         : NamedInsPiece(nbits, std::move(name)), iterator_min(0),
           iterator_max(iterator_max) {}
-    IntegralPiece(int nbits, string &&name, gword_t iterator_min,
-                  gword_t iterator_max)
+    IntegralPiece(int nbits, string &&name, u32 iterator_min,
+                  u32 iterator_max)
         : NamedInsPiece(nbits, std::move(name)), iterator_min(iterator_min),
           iterator_max(iterator_max) {}
 
-    bool advance(vector<DecodedPiece> &pieces, gword_t &instruction,
-                 gword_t &bits_consumed) override {
+    bool advance(vector<DecodedPiece> &pieces, u32 &instruction,
+                 u32 &bits_consumed) override {
       if (bits_consumed + nbits > get_instruction_size())
         return false;
 
-      gword_t bits = instruction & ((1 << nbits) - 1);
+      u32 bits = instruction & ((1 << nbits) - 1);
 
       pieces.emplace_back(bits, nbits, name);
 
@@ -149,9 +149,9 @@ export {
       return true;
     }
 
-    void build(unordered_map<string, gword_t> &values,
-               gword_t &instruction) const override {
-      gword_t v = values.at(name);
+    void build(unordered_map<string, u32> &values,
+               u32 &instruction) const override {
+      u32 v = values.at(name);
       instruction <<= nbits;
       instruction |= v & ((1 << nbits) - 1);
     }
@@ -164,7 +164,7 @@ export {
   struct TIntegralPiece : public IntegralPiece {
     using IntegralPiece::IntegralPiece;
 
-    gword_t get_instruction_size() const override { return 16; }
+    u32 get_instruction_size() const override { return 16; }
   };
 
   struct RegPiece : public IntegralPiece {
@@ -174,24 +174,24 @@ export {
   struct TRegPiece : public IntegralPiece {
     TRegPiece(string &&name) : IntegralPiece(3, std::move(name)) {}
 
-    gword_t get_instruction_size() const override { return 16; }
+    u32 get_instruction_size() const override { return 16; }
   };
 
   struct ValuePiece : public InsPiece {
-    gword_t value;
+    u32 value;
 
-    ValuePiece(gword_t value, int nbits) : InsPiece(nbits), value(value) {}
+    ValuePiece(u32 value, int nbits) : InsPiece(nbits), value(value) {}
 
-    bool advance(vector<DecodedPiece> &pieces, gword_t &instruction,
-                 gword_t &bits_consumed) override {
+    bool advance(vector<DecodedPiece> &pieces, u32 &instruction,
+                 u32 &bits_consumed) override {
       if (bits_consumed + nbits > get_instruction_size())
         return false;
 
-      gword_t value = this->value;
+      u32 value = this->value;
 
-      for (gword_t i = 0; i < nbits; i++) {
-        gword_t bit = instruction & 1;
-        gword_t target = value & 1;
+      for (u32 i = 0; i < nbits; i++) {
+        u32 bit = instruction & 1;
+        u32 target = value & 1;
 
         if (bit != target)
           return false;
@@ -207,8 +207,8 @@ export {
       return true;
     }
 
-    void build(unordered_map<string, gword_t> &values,
-               gword_t &instruction) const override {
+    void build(unordered_map<string, u32> &values,
+               u32 &instruction) const override {
       instruction <<= nbits;
       instruction |= value;
     }
@@ -219,7 +219,7 @@ export {
   struct TValuePiece : public ValuePiece {
     using ValuePiece::ValuePiece;
 
-    gword_t get_instruction_size() const override { return 16; }
+    u32 get_instruction_size() const override { return 16; }
   };
 
   struct Zeros : public ValuePiece {
@@ -231,14 +231,14 @@ export {
   struct TZeros : public Zeros {
     using Zeros::Zeros;
 
-    gword_t get_instruction_size() const override { return 16; }
+    u32 get_instruction_size() const override { return 16; }
   };
 
   struct Ones : public ValuePiece {
     Ones(int nbits) : ValuePiece((1 << nbits) - 1, nbits) {}
 
     biterator iterator() override {
-      gword_t mask = (1 << nbits) - 1;
+      u32 mask = (1 << nbits) - 1;
       return biterator(mask, mask + 1);
     }
   };
@@ -246,18 +246,18 @@ export {
   struct TOnes : public Ones {
     using Ones::Ones;
 
-    gword_t get_instruction_size() const override { return 16; }
+    u32 get_instruction_size() const override { return 16; }
   };
 
   struct CondPiece : public InsPiece {
     CondPiece() : InsPiece(4) {}
 
-    bool advance(vector<DecodedPiece> &pieces, gword_t &instruction,
-                 gword_t &bits_consumed) override {
+    bool advance(vector<DecodedPiece> &pieces, u32 &instruction,
+                 u32 &bits_consumed) override {
       if (bits_consumed + 4 > get_instruction_size())
         return false;
 
-      gword_t bits = instruction & 0xF;
+      u32 bits = instruction & 0xF;
       if (bits == 0xF)
         return false;
 
@@ -269,10 +269,10 @@ export {
       return true;
     }
 
-    void build(unordered_map<string, gword_t> &values,
-               gword_t &instruction) const override {
+    void build(unordered_map<string, u32> &values,
+               u32 &instruction) const override {
       auto f = values.find("cond");
-      gword_t v = f == values.end() ? 0 : f->second;
+      u32 v = f == values.end() ? 0 : f->second;
       instruction <<= nbits;
       instruction |= v & 0xF;
     }
@@ -307,7 +307,7 @@ export {
         delete pieces[i];
     }
 
-    virtual gword_t get_instruction_size() const { return 32; }
+    virtual u32 get_instruction_size() const { return 32; }
 
     void print_definition() const {
       vector<int> sizes;
@@ -323,7 +323,7 @@ export {
         }
 
         sizes.push_back(
-            std::max<gword_t>(names[i].size() + 3, pieces[i]->nbits * 3));
+            std::max<u32>(names[i].size() + 3, pieces[i]->nbits * 3));
         for (int j = 0; j < sizes[i] + 3 - (i == pieces.size() - 1); j++) {
           std::cout << '-';
         }
@@ -340,7 +340,7 @@ export {
       for (int i = 0; i < pieces.size(); i++) {
         string bits;
         if (!names[i].size()) {
-          gword_t n = *pieces[i]->iterator().get();
+          u32 n = *pieces[i]->iterator().get();
           for (int j = pieces[i]->nbits - 1; j >= 0; j--) {
             if (n & (1 << j)) {
               bits += " 1 ";
@@ -354,9 +354,9 @@ export {
       std::cout << "|\n";
     }
 
-    vector<DecodedPiece> validate(gword_t instruction) const {
-      gword_t icopy = instruction;
-      gword_t bits_consumed = 0;
+    vector<DecodedPiece> validate(u32 instruction) const {
+      u32 icopy = instruction;
+      u32 bits_consumed = 0;
 
       vector<DecodedPiece> decoded_pieces;
 
@@ -372,8 +372,8 @@ export {
       return decoded_pieces;
     }
 
-    gword_t build(unordered_map<string, gword_t> &values) const {
-      gword_t instruction = 0;
+    u32 build(unordered_map<string, u32> &values) const {
+      u32 instruction = 0;
 
       for (size_t i = 0; i < pieces.size(); i++) {
         pieces[i]->build(values, instruction);
@@ -383,8 +383,8 @@ export {
       return instruction;
     }
 
-    unordered_map<string, gword_t> generate_value_map() const {
-      unordered_map<string, gword_t> map;
+    unordered_map<string, u32> generate_value_map() const {
+      unordered_map<string, u32> map;
 
       for (size_t i = 0; i < pieces.size(); i++) {
         optional<string> name = pieces[i]->get_name();
@@ -406,11 +406,11 @@ export {
         }
       }
 
-      optional<gword_t> get() {
-        gword_t out = 0;
+      optional<u32> get() {
+        u32 out = 0;
 
         for (size_t i = 0; i < iters.size(); i++) {
-          optional<gword_t> bits = iters[i].get();
+          optional<u32> bits = iters[i].get();
           if (!bits)
             return std::nullopt;
 
@@ -425,7 +425,7 @@ export {
       iterator &step() {
         for (size_t i = pieces.size() - 1; i >= 0; i--) {
           iters[i].step();
-          optional<gword_t> bits = iters[i].get();
+          optional<u32> bits = iters[i].get();
 
           if (bits) {
             break;
@@ -447,11 +447,11 @@ export {
   struct TInstructionDefinition : public InstructionDefinition {
     using InstructionDefinition::InstructionDefinition;
 
-    gword_t get_instruction_size() const override { return 16; }
+    u32 get_instruction_size() const override { return 16; }
   };
 
   bool validate_instruction(const vector<InstructionDefinition> &definitions,
-                            gword_t instruction) {
+                            u32 instruction) {
     for (auto it = definitions.begin(); it != definitions.end(); it++) {
       auto p = it->validate(instruction);
       if (p.size() == it->pieces.size())

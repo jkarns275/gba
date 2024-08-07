@@ -13,23 +13,23 @@ export {
              new IntegralPiece(4, "Rd"), new Zeros(4),
              new ValuePiece(0b1001, 4), new IntegralPiece(4, "Rm")});
 
-    static constexpr gword_t MASK_B = flag_mask(22);
+    static constexpr u32 MASK_B = flag_mask(22);
 
     bool b;
-    byte irn, ird, irm;
+    u8 irn, ird, irm;
 
-    SingleDataSwap(gword_t instruction)
+    SingleDataSwap(u32 instruction)
         : Ins(instruction), b(MASK_B & instruction), irn(nibbles[4]),
           ird(nibbles[3]), irm(nibbles[0]) {}
 
     void execute(CpuState &state) override {
-      gword_t rd, rn = state.read_register(irn), rm = state.read_register(irm);
+      u32 rd, rn = state.read_register(irn), rm = state.read_register(irm);
       if (b) {
-        byte temp = state.byte_at(rn);
-        state.byte_at(rn) = rm;
+        u8 temp = state.u8_at(rn);
+        state.u8_at(rn) = rm;
         rd = temp;
       } else {
-        gword_t temp = state.rotated_at(rn);
+        u32 temp = state.rotated_at(rn);
         state.at(rn) = rm;
         rd = temp;
       }

@@ -27,9 +27,9 @@ export {
   ;
 
   struct UndefinedInstruction : public Ins {
-    gword_t instruction;
+    u32 instruction;
 
-    UndefinedInstruction(gword_t instruction) : Ins(instruction) {
+    UndefinedInstruction(u32 instruction) : Ins(instruction) {
       // assert(validate_instruction(UndefinedInstruction::DEFINITIONS,
       // instruction));
     }
@@ -46,7 +46,7 @@ export {
 
     InsAlg instruction;
 
-    ArmInstruction(gword_t instruction)
+    ArmInstruction(u32 instruction)
         : instruction(UndefinedInstruction(-1)) {
       Nibbles nibbles(instruction);
 
@@ -57,7 +57,7 @@ export {
         return;
       }
 
-      gword_t masked_opcode = (instruction >> 24) & 0b11001;
+      u32 masked_opcode = (instruction >> 24) & 0b11001;
       switch (nibbles[6]) {
       case 0b0000:
       case 0b0001: {
@@ -84,7 +84,7 @@ export {
         case 0b0001:
           if (masked_opcode == 0b10000) {
             // misc ins 3-3
-            gword_t op = nibbles[5] << 4;
+            u32 op = nibbles[5] << 4;
             op |= nibbles[1];
 
             switch (op) {
@@ -139,7 +139,7 @@ export {
 
       case 0b0010:
       case 0b0011: {
-        gword_t opcode = (instruction >> 20) & 0b11011;
+        u32 opcode = (instruction >> 20) & 0b11011;
         switch (opcode) {
         case 0b10000:
           this->instruction = UndefinedInstruction(instruction);

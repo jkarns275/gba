@@ -16,16 +16,16 @@ export {
                                    new Zeros(2), new BoolPiece("lr"),
                                    new Ones(1), new RegPiece("Rm")});
 
-    static constexpr gword_t MASK_LR = flag_mask(5);
-    static constexpr gword_t MASK_T = 0b1;
+    static constexpr u32 MASK_LR = flag_mask(5);
+    static constexpr u32 MASK_T = 0b1;
 
     bool set_lr;
-    gword_t irm;
+    u32 irm;
 
-    BranchExchange(gword_t instruction)
+    BranchExchange(u32 instruction)
         : Ins(instruction), set_lr(instruction & MASK_LR), irm(nibbles[0]) {}
 
-    BranchExchange(gword_t instruction, bool set_lr, byte irm)
+    BranchExchange(u32 instruction, bool set_lr, u8 irm)
         : Ins(instruction), set_lr(set_lr), irm(irm) {}
 
     void execute(CpuState &state) override {
@@ -36,7 +36,7 @@ export {
           state.write_lr(state.read_current_pc() + 4);
       }
 
-      gword_t rm = state.read_register(irm);
+      u32 rm = state.read_register(irm);
 
       state.write_pc(rm & ~1);
 
@@ -54,18 +54,18 @@ export {
                                    new BoolPiece("L"),
                                    new IntegralPiece(24, "offset")});
 
-    static constexpr gword_t MASK_L = flag_mask(24);
-    static constexpr gword_t MASK_OFFSET = 0xFFFFFF;
-    static constexpr gword_t MASK_OFFSET_SIGN = flag_mask(23);
+    static constexpr u32 MASK_L = flag_mask(24);
+    static constexpr u32 MASK_OFFSET = 0xFFFFFF;
+    static constexpr u32 MASK_OFFSET_SIGN = flag_mask(23);
 
     bool l;
     bool exchange;
 
     // 24 bit-signed integer in the instruction. Needs to be sign extended for
     // proper use.
-    signed_gword_t offset;
+    i32 offset;
 
-    BranchWithLink(gword_t instruction)
+    BranchWithLink(u32 instruction)
         : Ins(instruction), l(instruction & MASK_L),
           exchange(nibbles[7] == 0xF), offset(instruction & MASK_OFFSET) {
       if (offset & MASK_OFFSET_SIGN) {
@@ -74,16 +74,16 @@ export {
 
       offset <<= 2;
       if (exchange)
-        offset += gword_t(l) << 1;
+        offset += u32(l) << 1;
     }
 
-    BranchWithLink(gword_t instruction, bool l, bool exchange,
-                   signed_gword_t offset)
+    BranchWithLink(u32 instruction, bool l, bool exchange,
+                   i32 offset)
         : Ins(instruction), l(l), exchange(exchange), offset(offset) {}
 
     void execute(CpuState &state) override {
       if (exchange || l) {
-        gword_t lr = state.read_current_pc();
+        u32 lr = state.read_current_pc();
         if (state.is_thumb_mode()) {
           lr += 2;
         } else {

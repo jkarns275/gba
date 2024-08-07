@@ -9,7 +9,7 @@ import arm7tdmi.instruction;
 export {
   ;
 
-  enum BitShift : byte {
+  enum BitShift : u8 {
     LEFT = 0b00,
     LRIGHT = 0b01,
     ARIGHT = 0b10,
@@ -17,8 +17,8 @@ export {
   };
 
   struct ShifterOperandValue {
-    gword_t value;
-    gword_t carry;
+    u32 value;
+    u32 carry;
   };
 
   struct ShifterOperand {
@@ -26,12 +26,12 @@ export {
   };
 
   struct RotateOperand : public ShifterOperand {
-    byte rotate, imm;
+    u8 rotate, imm;
 
-    RotateOperand(byte rotate, byte imm)
+    RotateOperand(u8 rotate, u8 imm)
         : rotate(rotate & 0xF), imm(imm & 0xFF) {}
 
-    RotateOperand(gword_t instruction) {
+    RotateOperand(u32 instruction) {
       Nibbles nibbles(instruction);
 
       rotate = nibbles[2];
@@ -39,19 +39,19 @@ export {
     }
 
     ShifterOperandValue evaluate(CpuState &state) override {
-      constexpr gword_t MASK = flag_mask(31);
+      constexpr u32 MASK = flag_mask(31);
 
-      gword_t shifter = ror<gword_t>(imm, rotate * 2);
-      gword_t carry =
+      u32 shifter = ror<u32>(imm, rotate * 2);
+      u32 carry =
           rotate ? bool(shifter & MASK) : state.get_flag(CpuState::C_FLAG);
       return {shifter, carry};
     }
   };
 
   struct ThumbOperand : public ShifterOperand {
-    byte irm;
+    u8 irm;
 
-    ThumbOperand(byte irm) : irm(irm) {}
+    ThumbOperand(u8 irm) : irm(irm) {}
 
     ShifterOperandValue evaluate(CpuState &state) override {
       return {state.read_register(irm), 0};
@@ -59,28 +59,28 @@ export {
   };
 
   struct ImmShiftOperand : public ShifterOperand {
-    byte shift_by, irm;
+    u8 shift_by, irm;
     BitShift shift_type;
 
-    ImmShiftOperand(byte shift_by, byte irm, BitShift shift_type)
+    ImmShiftOperand(u8 shift_by, u8 irm, BitShift shift_type)
         : shift_by(shift_by), irm(irm), shift_type(shift_type) {}
 
-    ImmShiftOperand(gword_t instruction) {
+    ImmShiftOperand(u32 instruction) {
       Nibbles nibbles(instruction);
 
-      shift_by = std::min<byte>(31, (byte)((instruction & 0xF80) >> 7));
+      shift_by = std::min<u8>(31, (u8)((instruction & 0xF80) >> 7));
       irm = nibbles[0];
       shift_type = (BitShift)((nibbles[1] & 0b0110) >> 1);
     }
 
     ShifterOperandValue evaluate(CpuState &state) override {
-      constexpr gword_t MASK = flag_mask(31);
-      gword_t reg = state.read_register(irm);
+      constexpr u32 MASK = flag_mask(31);
+      u32 reg = state.read_register(irm);
 
       if (irm == 0xF)
         reg += 8;
 
-      gword_t value, carry;
+      u32 value, carry;
       if (shift_by) {
         carry = bool(flag_mask(shift_by - 1) & reg);
 
@@ -91,15 +91,15 @@ export {
           break;
 
         case LRIGHT:
-          value = lsr<gword_t>(reg, shift_by);
+          value = lsr<u32>(reg, shift_by);
           break;
 
         case ARIGHT:
-          value = asr<signed_gword_t>(reg, shift_by);
+          value = asr<i32>(reg, shift_by);
           break;
 
         case ROR:
-          value = ror<gword_t>(reg, shift_by);
+          value = ror<u32>(reg, shift_by);
           break;
         }
       } else {
@@ -138,13 +138,13 @@ export {
   };
 
   struct RegShiftOperand : public ShifterOperand {
-    byte irs, irm;
+    u8 irs, irm;
     BitShift shift_type;
 
-    RegShiftOperand(byte irs, byte irm, BitShift shift_type)
+    RegShiftOperand(u8 irs, u8 irm, BitShift shift_type)
         : irs(irs), irm(irm), shift_type(shift_type) {}
 
-    RegShiftOperand(gword_t instruction) {
+    RegShiftOperand(u32 instruction) {
       Nibbles nibbles(instruction);
 
       irs = nibbles[2];
@@ -153,12 +153,12 @@ export {
     }
 
     ShifterOperandValue evaluate(CpuState &state) override {
-      gword_t rs = state.read_register(irs);
-      gword_t rm = state.read_register(irm);
+      u32 rs = state.read_register(irs);
+      u32 rm = state.read_register(irm);
 
-      gword_t shift = rs & 0xFF;
+      u32 shift = rs & 0xFF;
 
-      gword_t value, carry;
+      u32 value, carry;
 
       switch (shift_type) {
       case LEFT:
@@ -182,7 +182,7 @@ export {
           value = rm;
           carry = state.get_flag(CpuState::C_FLAG);
         } else if (shift < 32) {
-          value = lsr<gword_t>(rm, shift);
+          value = lsr<u32>(rm, shift);
           carry = flag_mask(shift - 1) & rm;
         } else if (shift == 32) {
           value = 0;
@@ -198,7 +198,7 @@ export {
           value = rm;
           carry = state.get_flag(CpuState::C_FLAG);
         } else if (shift < 32) {
-          value = asr<signed_gword_t>(rm, shift);
+          value = asr<i32>(rm, shift);
           carry = flag_mask(shift - 1) & rm;
         } else {
           carry = 0x80000000 & rm;
@@ -211,7 +211,7 @@ export {
         break;
 
       case ROR: {
-        gword_t rotation = rs & 0x1F;
+        u32 rotation = rs & 0x1F;
         if (shift == 0) {
           value = rm;
           carry = state.get_flag(CpuState::C_FLAG);
@@ -219,7 +219,7 @@ export {
           value = rm;
           carry = flag_mask(31) & rm;
         } else {
-          value = ror<gword_t>(rm, rotation);
+          value = ror<u32>(rm, rotation);
           carry = flag_mask(rotation - 1) & rm;
         }
         break;

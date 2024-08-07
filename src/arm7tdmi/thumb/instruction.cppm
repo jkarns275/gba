@@ -11,14 +11,14 @@ using std::variant;
 
 export typedef DataProcessing::Opcode Opcode;
 
-constexpr byte thumb_reg(gshort_t ins, byte start) {
+constexpr u8 thumb_reg(u16 ins, u8 start) {
   return (ins >> start) & 0x7;
 }
 
-static constexpr gshort_t OPC_MASK = flag_mask(9);
+static constexpr u16 OPC_MASK = flag_mask(9);
 static constexpr Opcode OPCODE_MAP_ADD_SUB[2] = {Opcode::ADD, Opcode::SUB};
 
-static constexpr gshort_t LOAD_MASK = flag_mask(11);
+static constexpr u16 LOAD_MASK = flag_mask(11);
 
 export {
   ;
@@ -34,7 +34,7 @@ export {
                                     new TIntegralPiece(5, "imm5"),
                                     new TRegPiece("Rm"), new TRegPiece("Rd")});
 
-    TShiftImm(gshort_t instruction)
+    TShiftImm(u16 instruction)
         : DataProcessing(
               instruction, Opcode::MOV, true, 0, thumb_reg(instruction, 0),
               ImmShiftOperand((instruction >> 6) & 0x1F,
@@ -54,7 +54,7 @@ export {
             {new TZeros(3), new TValuePiece(0b110, 3), new TBoolPiece("opcode"),
              new TRegPiece("Rm"), new TRegPiece("Rn"), new TRegPiece("Rd")});
 
-    TAddSubReg(gshort_t instruction)
+    TAddSubReg(u16 instruction)
         : DataProcessing(instruction,
                          OPCODE_MAP_ADD_SUB[bool(OPC_MASK & instruction)], true,
                          thumb_reg(instruction, 3), thumb_reg(instruction, 0),
@@ -72,7 +72,7 @@ export {
                                     new TIntegralPiece(3, "imm3"),
                                     new TRegPiece("Rn"), new TRegPiece("Rd")});
 
-    TAddSubImm(gshort_t instruction)
+    TAddSubImm(u16 instruction)
         : DataProcessing(instruction,
                          OPCODE_MAP_ADD_SUB[bool(OPC_MASK & instruction)], true,
                          thumb_reg(instruction, 3), thumb_reg(instruction, 0),
@@ -93,7 +93,7 @@ export {
     static constexpr Opcode OPCODE_MAP[4] = {Opcode::MOV, Opcode::CMP,
                                              Opcode::ADD, Opcode::SUB};
 
-    TDataProcessingImm(gshort_t instruction)
+    TDataProcessingImm(u16 instruction)
         : DataProcessing(instruction, OPCODE_MAP[(instruction >> 11) & 0b11],
                          true, thumb_reg(instruction, 8),
                          thumb_reg(instruction, 8),
@@ -124,13 +124,13 @@ export {
             {new TValuePiece(0b010000, 6), new TIntegralPiece(4, "opcode"),
              new TRegPiece("Rm/Rs"), new TRegPiece("Rd/Rn")});
 
-    TDataProcessing(gshort_t instruction)
+    TDataProcessing(u16 instruction)
         : DataProcessing(instruction, (Opcode)((instruction >> 6) & 0xF), true,
                          thumb_reg(instruction, 0), thumb_reg(instruction, 0),
                          ThumbOperand(thumb_reg(instruction, 3))) {
       // Opcodes that don't line up w/ the DataProcessing::Opcode enum
-      byte ir = thumb_reg(instruction, 3);
-      byte shift_type = 0xFF;
+      u8 ir = thumb_reg(instruction, 3);
+      u8 shift_type = 0xFF;
 
       switch (opcode) {
       case Opcode::RSC:
@@ -166,7 +166,7 @@ export {
         new TInstructionDefinition({new TValuePiece(0b0100001101, 10),
                                     new TRegPiece("Rm"), new TRegPiece("Rd")});
 
-    TMul(gshort_t instruction)
+    TMul(u16 instruction)
         : MulShort(instruction, false, true, thumb_reg(instruction, 0), 0,
                    thumb_reg(instruction, 0), thumb_reg(instruction, 3)) {}
   };
@@ -186,12 +186,12 @@ export {
     static constexpr Opcode OPCODE_MAP[4] = {Opcode::ADD, Opcode::CMP,
                                              Opcode::MOV};
 
-    TDataProcessingHiReg(gshort_t instruction)
+    TDataProcessingHiReg(u16 instruction)
         : DataProcessing(instruction, OPCODE_MAP[(instruction >> 8) & 0b11],
                          false,
                          (instruction & 0x7) | ((instruction >> 4) & 0x8),
                          (instruction & 0x7) | ((instruction >> 4) & 0x8),
-                         ThumbOperand((byte)((instruction >> 3) & 0xF))) {
+                         ThumbOperand((u8)((instruction >> 3) & 0xF))) {
       assert(((instruction >> 8) & 0b11) < 3);
     }
   };
@@ -207,9 +207,9 @@ export {
                                     new TBoolPiece("L"), new TBoolPiece("H2"),
                                     new TRegPiece("Rm"), new TZeros(3)});
 
-    static constexpr gshort_t MASK_LR = flag_mask(7);
+    static constexpr u16 MASK_LR = flag_mask(7);
 
-    TBranchExchange(gshort_t instruction)
+    TBranchExchange(u16 instruction)
         : BranchExchange(instruction, instruction & MASK_LR,
                          (instruction >> 3) & 0xF) {}
   };
@@ -222,11 +222,11 @@ export {
                                     new TRegPiece("Rd"),
                                     new TIntegralPiece(8, "offset")});
 
-    TLiteralPoolLoad(gshort_t instruction)
+    TLiteralPoolLoad(u16 instruction)
         : LoadStoreOffset(instruction, false, true, true, false, true,
                           CpuState::INDEX_PC, thumb_reg(instruction, 8),
                           LoadStoreOffset::WORD,
-                          (gword_t)((instruction & 0xFF) << 2)) {}
+                          (u32)((instruction & 0xFF) << 2)) {}
   };
 
   // LDR (2)
@@ -241,9 +241,9 @@ export {
             {new TValuePiece(0b0101, 4), new TIntegralPiece(3, "opcode"),
              new TRegPiece("Rm"), new TRegPiece("Rn"), new TRegPiece("Rd")});
 
-    static constexpr gword_t B_MASK = flag_mask(10);
+    static constexpr u32 B_MASK = flag_mask(10);
 
-    TLoadStoreReg(gshort_t instruction)
+    TLoadStoreReg(u16 instruction)
         : LoadStoreOffset(
               instruction, true, true, true, true, instruction & LOAD_MASK,
               thumb_reg(instruction, 3), thumb_reg(instruction, 0),
@@ -255,9 +255,9 @@ export {
   // LDRSH
   // 0b0101_11
   struct TLoadSigned : public LoadStore {
-    static constexpr gshort_t DATA_TYPE_MASK = flag_mask(11);
+    static constexpr u16 DATA_TYPE_MASK = flag_mask(11);
 
-    TLoadSigned(gshort_t instruction)
+    TLoadSigned(u16 instruction)
         : LoadStore(instruction, true, true, false, true, true,
                     thumb_reg(instruction, 3), thumb_reg(instruction, 0),
                     (instruction & DATA_TYPE_MASK) ? LoadStore::SHORT
@@ -275,7 +275,7 @@ export {
                                     new TIntegralPiece(5, "offset"),
                                     new TRegPiece("Rn"), new TRegPiece("Rd")});
 
-    TLoadStoreImm5(gshort_t instruction)
+    TLoadStoreImm5(u16 instruction)
         : LoadStoreOffset(instruction, false, true, true, false,
                           instruction & LOAD_MASK, thumb_reg(instruction, 3),
                           thumb_reg(instruction, 0), LoadStoreOffset::WORD,
@@ -293,7 +293,7 @@ export {
                                     new TIntegralPiece(5, "offset"),
                                     new TRegPiece("Rn"), new TRegPiece("Rd")});
 
-    TLoadStoreByteImm5(gshort_t instruction)
+    TLoadStoreByteImm5(u16 instruction)
         : LoadStoreOffset(instruction, false, true, true, false,
                           instruction & LOAD_MASK, thumb_reg(instruction, 3),
                           thumb_reg(instruction, 0), LoadStoreOffset::BYTE,
@@ -312,7 +312,7 @@ export {
                                     new TIntegralPiece(5, "offset"),
                                     new TRegPiece("Rn"), new TRegPiece("Rd")});
 
-    TLoadStoreShort(gshort_t instruction)
+    TLoadStoreShort(u16 instruction)
         : LoadStore(instruction, true, true, false, instruction & LOAD_MASK,
                     false, thumb_reg(instruction, 3), thumb_reg(instruction, 0),
                     LoadStore::SHORT, LoadStore::REGISTER, 0) {
@@ -331,7 +331,7 @@ export {
   // STR (3)
   // 0b1001____________
   struct TLoadStoreImm8 : public LoadStoreOffset {
-    TLoadStoreImm8(gshort_t instruction)
+    TLoadStoreImm8(u16 instruction)
         : LoadStoreOffset(instruction, false, true, true, false,
                           instruction & LOAD_MASK, CpuState::INDEX_SP,
                           thumb_reg(instruction, 8), LoadStoreOffset::WORD,
@@ -341,14 +341,14 @@ export {
   // ADD (5)
   // 0b10100___________
   struct TAddWithPC : public Ins {
-    byte ird, imm;
+    u8 ird, imm;
 
-    TAddWithPC(gshort_t instruction)
+    TAddWithPC(u16 instruction)
         : Ins(instruction), ird(thumb_reg(instruction, 8)),
           imm(instruction & 0xFF) {}
 
     void execute(CpuState &state) override {
-      gword_t pc = state.read_pc() & 0xFFFFFFFC;
+      u32 pc = state.read_pc() & 0xFFFFFFFC;
       state.write_register(ird, pc + (imm << 2));
     }
   };
@@ -357,7 +357,7 @@ export {
   // SUB (4)
   // 0b10101___________
   struct TAddToSP : public DataProcessing {
-    TAddToSP(gshort_t instruction)
+    TAddToSP(u16 instruction)
         : DataProcessing(instruction,
                          OPCODE_MAP_ADD_SUB[(instruction >> 7) & 1], false,
                          CpuState::INDEX_SP, CpuState::INDEX_SP,
@@ -367,7 +367,7 @@ export {
   // ADD (6)
   // 0b10110000________
   struct TAddWithSP : public DataProcessing {
-    TAddWithSP(gshort_t instruction)
+    TAddWithSP(u16 instruction)
         : DataProcessing(instruction, Opcode::ADD, false, CpuState::INDEX_SP,
                          thumb_reg(instruction, 8),
                          RotateOperand(0xF, instruction & 0xFF)) {}
@@ -377,10 +377,10 @@ export {
   // POP
   // 0b1011_10_________
   struct TPushPopRegisterList : public LoadStoreMultiple {
-    static constexpr gshort_t POP_FLAG = flag_mask(11);
-    static constexpr gshort_t R_FLAG = flag_mask(8);
+    static constexpr u16 POP_FLAG = flag_mask(11);
+    static constexpr u16 R_FLAG = flag_mask(8);
 
-    TPushPopRegisterList(gshort_t instruction)
+    TPushPopRegisterList(u16 instruction)
         : LoadStoreMultiple(instruction, false, true, false, true,
                             instruction & POP_FLAG, CpuState::INDEX_SP,
                             instruction & 0xFF) {
@@ -392,7 +392,7 @@ export {
   // STMIA
   // 0b1100____________
   struct TLoadStoreMultiple : public LoadStoreMultiple {
-    TLoadStoreMultiple(gshort_t instruction)
+    TLoadStoreMultiple(u16 instruction)
         : LoadStoreMultiple(instruction, false, true, false, false,
                             instruction & LOAD_MASK, thumb_reg(instruction, 8),
                             instruction & 0xFF) {
@@ -404,11 +404,11 @@ export {
   // 0b1101____________
   struct TConditionalBranch : public Ins {
     Cond cond;
-    signed_gword_t word;
+    i32 word;
 
-    TConditionalBranch(gshort_t instruction)
+    TConditionalBranch(u16 instruction)
         : Ins(instruction), cond((Cond)((instruction >> 8) & 0xF)),
-          word((signed_byte)(instruction & 0xFF)) {}
+          word((i8)(instruction & 0xFF)) {}
 
     void execute(CpuState &state) override {
       if (state.evaluate_cond(cond)) {
@@ -419,13 +419,13 @@ export {
 
   // 0b11101__________1
   struct UndefinedThumbInstruction : public Ins {
-    UndefinedThumbInstruction(gshort_t instruction) : Ins(instruction) {}
+    UndefinedThumbInstruction(u16 instruction) : Ins(instruction) {}
   };
 
   // SWI
   // 0b11011111________
   struct TSoftwareInterrupt : public SoftwareInterrupt {
-    TSoftwareInterrupt(gshort_t instruction)
+    TSoftwareInterrupt(u16 instruction)
         : SoftwareInterrupt(instruction, instruction & 0xFF) {}
   };
 
@@ -434,20 +434,20 @@ export {
   // BL
   // 0b11100___________
   struct TBranchWithLink : public Ins {
-    static constexpr gshort_t MASK_OPCODE = 0x1800;
-    static constexpr gshort_t MASK_OFFSET = 0x07FF;
-    static constexpr gshort_t MASK_11_BIT_SIGN = 0x0400;
+    static constexpr u16 MASK_OPCODE = 0x1800;
+    static constexpr u16 MASK_OFFSET = 0x07FF;
+    static constexpr u16 MASK_11_BIT_SIGN = 0x0400;
 
-    enum Opcode : byte {
+    enum Opcode : u8 {
       UNCOND = 0,
       BRANCH_LINK_EXCHANGE = 1,
       LINK = 2,
       BRANCH_LINK = 3,
     } opcode;
 
-    signed_gshort_t offset;
+    i16 offset;
 
-    TBranchWithLink(gshort_t instruction)
+    TBranchWithLink(u16 instruction)
         : Ins(instruction), opcode((Opcode)((instruction >> 11) & MASK_OPCODE)),
           offset(instruction & MASK_OFFSET) {
       if (offset & MASK_11_BIT_SIGN) {
@@ -456,10 +456,10 @@ export {
     }
 
     void execute(CpuState &state) override {
-      gword_t pc = state.read_pc();
+      u32 pc = state.read_pc();
       switch (opcode) {
       case UNCOND:
-        state.write_pc(state.read_pc() + ((signed_gword_t)offset << 1));
+        state.write_pc(state.read_pc() + ((i32)offset << 1));
         break;
 
       case BRANCH_LINK_EXCHANGE:
@@ -470,7 +470,7 @@ export {
         break;
 
       case LINK:
-        state.write_lr(pc + ((signed_gword_t)offset << 12));
+        state.write_lr(pc + ((i32)offset << 12));
         break;
 
       case BRANCH_LINK:
@@ -493,7 +493,7 @@ export {
 
     InsAlg instruction;
 
-    ThumbInstruction(gword_t instruction)
+    ThumbInstruction(u32 instruction)
         : instruction(UndefinedThumbInstruction(-1)) {
       Nibbles nibbles(instruction);
     }

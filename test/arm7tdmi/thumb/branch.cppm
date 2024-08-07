@@ -22,15 +22,15 @@ struct TBranchTest : public ArmInstructionTest<I> {
     REQUIRE(state.read_current_pc() == expected_value(state));
   }
 
-  virtual gword_t expected_value(CpuState &state) = 0;
+  virtual u32 expected_value(CpuState &state) = 0;
 };
 
 struct TBranchExchangeTest : public TBranchTest<TBranchExchange> {
-  byte irm;
-  gword_t rm, pc;
+  u8 irm;
+  u32 rm, pc;
   bool exchange, link;
 
-  TBranchExchangeTest(byte irm, gword_t rm, gword_t pc, bool link)
+  TBranchExchangeTest(u8 irm, u32 rm, u32 pc, bool link)
       : TBranchTest<TBranchExchange>(), irm(irm), rm(rm), pc(pc),
         exchange(rm & 1), link(link) {}
 
@@ -60,7 +60,7 @@ struct TBranchExchangeTest : public TBranchTest<TBranchExchange> {
     }
   }
 
-  gword_t expected_value(CpuState &state) override { return rm & 0xFFFFFFFE; }
+  u32 expected_value(CpuState &state) override { return rm & 0xFFFFFFFE; }
 };
 
 TEST_CASE("THUMB BX") {

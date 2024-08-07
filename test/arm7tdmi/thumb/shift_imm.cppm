@@ -18,12 +18,12 @@ using std::string;
 using std::unordered_map;
 
 struct TShiftImmTest : public ArmInstructionTestWithFlags<TShiftImm> {
-  byte opcode, imm, irm;
-  gword_t rm;
-  byte ird;
+  u8 opcode, imm, irm;
+  u32 rm;
+  u8 ird;
 
-  TShiftImmTest(byte opcode, byte imm, byte irm, gword_t rm, byte ird,
-                gword_t input_flags, gword_t output_flags)
+  TShiftImmTest(u8 opcode, u8 imm, u8 irm, u32 rm, u8 ird,
+                u32 input_flags, u32 output_flags)
       : ArmInstructionTestWithFlags<TShiftImm>(input_flags, output_flags),
         opcode(opcode), imm(imm), irm(irm), rm(rm), ird(ird) {}
 
@@ -65,10 +65,10 @@ struct TShiftImmTest : public ArmInstructionTestWithFlags<TShiftImm> {
 };
 
 void shift_test(BitShift shift_type) {
-  const gword_t IRD = 0;
-  const gword_t IRM = 1;
+  const u32 IRD = 0;
+  const u32 IRM = 1;
 
-  auto rm = GENERATE(take(100, random<gword_t>(0, -1)));
+  auto rm = GENERATE(take(100, random<u32>(0, -1)));
   auto imm = GENERATE(range(0, 31));
 
   SECTION(std::format("rm = {:x}, imm = {:x}", rm, imm)) {

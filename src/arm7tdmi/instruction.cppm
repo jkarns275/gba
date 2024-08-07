@@ -12,7 +12,7 @@ export {
   struct Ins {
     Nibbles nibbles;
 
-    Ins(gword_t instruction) : nibbles(instruction) {}
+    Ins(u32 instruction) : nibbles(instruction) {}
 
     virtual void execute(CpuState &cpu_state) {}
   };

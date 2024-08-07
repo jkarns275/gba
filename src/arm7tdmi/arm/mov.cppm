@@ -33,13 +33,13 @@ export {
              new BoolPiece("H"), new Ones(1), new RegPiece("immed_lo")}),
     };
 
-    static constexpr gword_t MASK_P = flag_mask(24);
-    static constexpr gword_t MASK_U = flag_mask(23);
-    static constexpr gword_t MASK_B = flag_mask(22);
-    static constexpr gword_t MASK_W = flag_mask(21);
-    static constexpr gword_t MASK_L = flag_mask(20);
-    static constexpr gword_t MASK_S = flag_mask(6);
-    static constexpr gword_t MASK_H = flag_mask(5);
+    static constexpr u32 MASK_P = flag_mask(24);
+    static constexpr u32 MASK_U = flag_mask(23);
+    static constexpr u32 MASK_B = flag_mask(22);
+    static constexpr u32 MASK_W = flag_mask(21);
+    static constexpr u32 MASK_L = flag_mask(20);
+    static constexpr u32 MASK_S = flag_mask(6);
+    static constexpr u32 MASK_H = flag_mask(5);
 
     // If p == 0: post-indexed addressing is used
     // If P == 1: offset addressing or pre-indexed addressing is used, controled
@@ -59,21 +59,21 @@ export {
     // Signed (1) and unsigned (0) access
     bool s;
 
-    byte irn, ird;
+    u8 irn, ird;
 
     enum IntegralType { BYTE = 1, SHORT = 2, WORD = 4, LONG = 8 } integral_type;
     enum OffsetType { REGISTER = 0, IMMEDIATE = 1 } offset_type;
 
-    byte operand;
+    u8 operand;
 
-    LoadStore(gword_t instruction)
+    LoadStore(u32 instruction)
         : Ins(instruction), p(MASK_P & instruction), u(MASK_U & instruction),
           w(MASK_W & instruction), l(MASK_L & instruction),
           s(MASK_S & instruction), irn(nibbles[4]), ird(nibbles[3]) {
 
       bool b = MASK_B & instruction;
 
-      // Halfword (1) and byte (0) access
+      // Halfword (1) and u8 (0) access
       // bool h = MASK_H & instruction;
 
       offset_type = (OffsetType)b;
@@ -96,21 +96,21 @@ export {
       assert(!(integral_type == BYTE && !s));
     }
 
-    LoadStore(gword_t instruction, bool p, bool u, bool w, bool l, bool s,
-              byte irn, byte ird, IntegralType integral_type,
-              OffsetType offset_type, byte operand)
+    LoadStore(u32 instruction, bool p, bool u, bool w, bool l, bool s,
+              u8 irn, u8 ird, IntegralType integral_type,
+              OffsetType offset_type, u8 operand)
         : Ins(instruction), p(p), u(u), w(w), l(l), s(s), irn(irn), ird(ird),
           integral_type(integral_type), offset_type(offset_type),
           operand(operand) {}
 
-    static constexpr gword_t switch_pair(OffsetType offset_type, gword_t p) {
-      return (gword_t)offset_type | (p << 1);
+    static constexpr u32 switch_pair(OffsetType offset_type, u32 p) {
+      return (u32)offset_type | (p << 1);
     }
 
-    gword_t get_address(CpuState &state) {
-      const gword_t sign = u ? 1 : -1;
+    u32 get_address(CpuState &state) {
+      const u32 sign = u ? 1 : -1;
 
-      gword_t rn = state.read_register(irn), address;
+      u32 rn = state.read_register(irn), address;
 
       switch (switch_pair(offset_type, p)) {
       case switch_pair(REGISTER, false):
@@ -125,11 +125,11 @@ export {
 
       case switch_pair(IMMEDIATE, false):
         address = rn;
-        rn += sign * (gword_t)operand;
+        rn += sign * (u32)operand;
         break;
 
       case switch_pair(IMMEDIATE, true):
-        address = rn + (sign * (gword_t)operand);
+        address = rn + (sign * (u32)operand);
         rn = w ? address : rn;
       }
 
@@ -138,30 +138,30 @@ export {
       return address;
     }
 
-    static constexpr gword_t switch_pair(IntegralType integral_type,
+    static constexpr u32 switch_pair(IntegralType integral_type,
                                          bool is_signed) {
-      return (gword_t)integral_type | ((gword_t)is_signed * 16);
+      return (u32)integral_type | ((u32)is_signed * 16);
     }
 
     void load(CpuState &state) {
-      gword_t rd;
-      gword_t address = get_address(state);
+      u32 rd;
+      u32 address = get_address(state);
 
       switch (switch_pair(integral_type, s)) {
       case switch_pair(BYTE, true): {
-        signed_gword_t word = state.signed_byte_at(address);
+        i32 word = state.i8_at(address);
         rd = word;
         break;
       }
 
       case switch_pair(SHORT, false): {
-        gword_t word = state.short_at(address);
+        u32 word = state.short_at(address);
         rd = word;
         break;
       }
 
       case switch_pair(SHORT, true): {
-        signed_gword_t word = state.signed_short_at(address);
+        i32 word = state.signed_short_at(address);
         rd = word;
         break;
       }
@@ -184,16 +184,16 @@ export {
     }
 
     void store(CpuState &state) {
-      gword_t rd = state.read_register(ird);
-      gword_t address = get_address(state);
+      u32 rd = state.read_register(ird);
+      u32 address = get_address(state);
 
       switch (switch_pair(integral_type, s)) {
       case switch_pair(SHORT, false): {
-        gshort_t &data = state.short_at(address);
+        u16 &data = state.short_at(address);
         data = rd;
         break;
       }
-      // Storing a word / byte / signed short are all covered in other
+      // Storing a word / u8 / signed short are all covered in other
       // instructions.
       case switch_pair(WORD, false):
       case switch_pair(SHORT, true):
@@ -220,16 +220,16 @@ export {
         new InstructionDefinition(
             {new CondPiece(), new ValuePiece(0b00010, 5), new BoolPiece("R"),
              new Zeros(2), new Ones(4), new RegPiece("Rd"), new Zeros(12)});
-    static constexpr gword_t MASK_R = flag_mask(22);
+    static constexpr u32 MASK_R = flag_mask(22);
 
     bool r;
-    byte ird;
+    u8 ird;
 
-    MovStatusToReg(gword_t instruction)
+    MovStatusToReg(u32 instruction)
         : Ins(instruction), r(MASK_R & instruction), ird(nibbles[3]) {}
 
     void execute(CpuState &state) override {
-      gword_t rd;
+      u32 rd;
       if (r) {
         rd = state.read_spsr();
       } else {
@@ -251,10 +251,10 @@ export {
              new RegPiece("rotate"), new IntegralPiece(12, "imm", 4)})};
 
     bool r;
-    variant<byte, RotateOperand> operand;
-    byte field_mask;
+    variant<u8, RotateOperand> operand;
+    u8 field_mask;
 
-    MovToStatus(gword_t instruction)
+    MovToStatus(u32 instruction)
         : Ins(instruction), r(nibbles[5] & 0b0100), field_mask(nibbles[4]) {
       switch (nibbles[6]) {
       case 0b0011:
@@ -271,10 +271,10 @@ export {
     }
 
     void execute(CpuState &state) override {
-      gword_t operand;
+      u32 operand;
 
-      if (std::holds_alternative<byte>(this->operand)) {
-        operand = state.read_register(std::get<byte>(this->operand));
+      if (std::holds_alternative<u8>(this->operand)) {
+        operand = state.read_register(std::get<u8>(this->operand));
       } else {
         ShifterOperandValue value =
             std::get<RotateOperand>(this->operand).evaluate(state);
@@ -285,8 +285,8 @@ export {
       if (!r && !mode_has_spsr(mode))
         return;
 
-      gword_t psr = r ? state.read_cpsr() : state.read_spsr();
-      gword_t mask = 0;
+      u32 psr = r ? state.read_cpsr() : state.read_spsr();
+      u32 mask = 0;
 
       if ((r && mode_is_privileged(mode)) || !r) {
         mask |= field_mask & 0b0001 ? 0x000000FF : 0;
@@ -321,14 +321,14 @@ export {
              new RegPiece("Rm")}),
     };
 
-    static constexpr gword_t MASK_I = flag_mask(25);
-    static constexpr gword_t MASK_P = flag_mask(24);
-    static constexpr gword_t MASK_U = flag_mask(23);
-    static constexpr gword_t MASK_B = flag_mask(22);
-    static constexpr gword_t MASK_W = flag_mask(21);
-    static constexpr gword_t MASK_L = flag_mask(20);
-    static constexpr gword_t MASK_S = flag_mask(6);
-    static constexpr gword_t MASK_H = flag_mask(5);
+    static constexpr u32 MASK_I = flag_mask(25);
+    static constexpr u32 MASK_P = flag_mask(24);
+    static constexpr u32 MASK_U = flag_mask(23);
+    static constexpr u32 MASK_B = flag_mask(22);
+    static constexpr u32 MASK_W = flag_mask(21);
+    static constexpr u32 MASK_L = flag_mask(20);
+    static constexpr u32 MASK_S = flag_mask(6);
+    static constexpr u32 MASK_H = flag_mask(5);
 
     bool register_offset;
     bool pre_indexed_or_offset;
@@ -336,12 +336,12 @@ export {
     bool w;
     bool load;
 
-    byte irn, ird;
+    u8 irn, ird;
 
-    variant<gword_t, ImmShiftOperand> operand;
+    variant<u32, ImmShiftOperand> operand;
     enum DataType { BYTE = 1, WORD = 0 } data_type;
 
-    LoadStoreOffset(gword_t instruction)
+    LoadStoreOffset(u32 instruction)
         : Ins(instruction), register_offset(instruction & MASK_I),
           pre_indexed_or_offset(instruction & MASK_P),
           add_offset(instruction & MASK_U), w(instruction & MASK_W),
@@ -354,21 +354,21 @@ export {
       }
     }
 
-    LoadStoreOffset(gword_t instruction, bool i, bool p, bool u, bool w, bool l,
-                    byte irn, byte ird, DataType data_type,
-                    variant<gword_t, ImmShiftOperand> operand)
+    LoadStoreOffset(u32 instruction, bool i, bool p, bool u, bool w, bool l,
+                    u8 irn, u8 ird, DataType data_type,
+                    variant<u32, ImmShiftOperand> operand)
         : Ins(instruction), register_offset(i), pre_indexed_or_offset(p),
           add_offset(u), w(w), load(l), irn(irn), ird(ird), operand(operand),
           data_type(data_type) {}
 
-    static constexpr gword_t switch_pair(bool p, bool w) {
+    static constexpr u32 switch_pair(bool p, bool w) {
       return (p ? 1 : 0) | (w ? 2 : 0);
     }
 
-    gword_t get_address(CpuState &state) {
-      gword_t rn = state.read_register(irn);
-      signed_gword_t sign = add_offset ? 1 : -1;
-      gword_t addr = rn;
+    u32 get_address(CpuState &state) {
+      u32 rn = state.read_register(irn);
+      i32 sign = add_offset ? 1 : -1;
+      u32 addr = rn;
 
       if (irn == 15) {
         // Definition of PC is slightly different in THUMB mode
@@ -380,10 +380,10 @@ export {
         }
       }
 
-      signed_gword_t offset =
+      i32 offset =
           register_offset
               ? std::get<ImmShiftOperand>(operand).evaluate(state).value
-              : std::get<gword_t>(operand);
+              : std::get<u32>(operand);
 
       switch (switch_pair(pre_indexed_or_offset, w)) {
       case switch_pair(false, false):
@@ -407,8 +407,8 @@ export {
     }
 
     void execute(CpuState &state) override {
-      gword_t rd = state.read_register(ird);
-      gword_t addr = get_address(state);
+      u32 rd = state.read_register(ird);
+      u32 addr = get_address(state);
 
       if (load) {
         Mode mode = Mode::USR;
@@ -418,7 +418,7 @@ export {
 
         switch (data_type) {
         case BYTE:
-          rd = (gword_t)state.memory.byte_at(addr, mode);
+          rd = (u32)state.memory.u8_at(addr, mode);
           break;
         case WORD:
           rd = state.memory.rotated_at(addr, mode);
@@ -427,7 +427,7 @@ export {
       } else {
         switch (data_type) {
         case BYTE:
-          state.byte_at(addr) = rd;
+          state.u8_at(addr) = rd;
           break;
         case WORD:
           state.at(addr & ~(0b11)) = rd;
@@ -447,33 +447,33 @@ export {
                                    new BoolPiece("L"), new RegPiece("Rn"),
                                    new IntegralPiece(16, "register_list", 4)});
 
-    static constexpr gword_t MASK_PC = flag_mask(15);
-    static constexpr gword_t MASK_PC_ASSIGNMENT = 0xFFFFFFFE;
-    static constexpr gword_t MASK_P = flag_mask(24);
-    static constexpr gword_t MASK_U = flag_mask(23);
-    static constexpr gword_t MASK_S = flag_mask(22);
-    static constexpr gword_t MASK_W = flag_mask(21);
-    static constexpr gword_t MASK_L = flag_mask(20);
+    static constexpr u32 MASK_PC = flag_mask(15);
+    static constexpr u32 MASK_PC_ASSIGNMENT = 0xFFFFFFFE;
+    static constexpr u32 MASK_P = flag_mask(24);
+    static constexpr u32 MASK_U = flag_mask(23);
+    static constexpr u32 MASK_S = flag_mask(22);
+    static constexpr u32 MASK_W = flag_mask(21);
+    static constexpr u32 MASK_L = flag_mask(20);
 
     bool p, u, s, w, l;
-    byte irn;
-    gshort_t register_list;
+    u8 irn;
+    u16 register_list;
 
-    LoadStoreMultiple(gword_t instruction)
+    LoadStoreMultiple(u32 instruction)
         : Ins(instruction), p(instruction & MASK_P), u(instruction & MASK_U),
           s(instruction & MASK_S), w(instruction & MASK_W),
           l(instruction & MASK_L), irn(nibbles[4]),
           register_list(instruction & 0xFFFF) {}
 
-    LoadStoreMultiple(gword_t instruction, bool p, bool u, bool s, bool w,
-                      bool l, byte irn, gshort_t register_list)
+    LoadStoreMultiple(u32 instruction, bool p, bool u, bool s, bool w,
+                      bool l, u8 irn, u16 register_list)
         : Ins(instruction), p(p), u(u), s(s), w(w), l(l), irn(irn),
           register_list(register_list) {}
 
-    inline std::pair<gword_t, gword_t> get_address(CpuState &state) {
-      gword_t rn = state.read_register(irn);
-      gword_t register_width = count_ones(register_list) * 4;
-      gword_t start = rn;
+    inline std::pair<u32, u32> get_address(CpuState &state) {
+      u32 rn = state.read_register(irn);
+      u32 register_width = count_ones(register_list) * 4;
+      u32 start = rn;
 
       start += (p == u) << 2;
       start -= u ? 0 : register_width;

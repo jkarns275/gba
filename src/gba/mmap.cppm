@@ -4,49 +4,49 @@
 export module gba.mmap;
 
 struct Memory {
-  static inline constexpr gword_t MEMORY_OFFSET_MASK = ~0xFF000000;
-  static inline constexpr gword_t MEMORY_BLOCK_MASK = 0x0F000000;
+  static inline constexpr u32 MEMORY_OFFSET_MASK = ~0xFF000000;
+  static inline constexpr u32 MEMORY_BLOCK_MASK = 0x0F000000;
 
-  static inline constexpr gword_t SYSTEM_ROM_BASE = 0x00000000;
-  static inline constexpr gword_t SYSTEM_ROM_SIZE = 0x4000;
+  static inline constexpr u32 SYSTEM_ROM_BASE = 0x00000000;
+  static inline constexpr u32 SYSTEM_ROM_SIZE = 0x4000;
 
-  static inline constexpr gword_t EW_RAM_BASE = 0x02000000;
-  static inline constexpr gword_t EW_RAM_SIZE = 0x40000;
+  static inline constexpr u32 EW_RAM_BASE = 0x02000000;
+  static inline constexpr u32 EW_RAM_SIZE = 0x40000;
 
-  static inline constexpr gword_t IW_RAM_BASE = 0x03000000;
-  static inline constexpr gword_t IW_RAM_SIZE = 0x8000;
+  static inline constexpr u32 IW_RAM_BASE = 0x03000000;
+  static inline constexpr u32 IW_RAM_SIZE = 0x8000;
 
-  static inline constexpr gword_t IO_RAM_BASE = 0x04000000;
-  static inline constexpr gword_t IO_RAM_SIZE = 0x400;
+  static inline constexpr u32 IO_RAM_BASE = 0x04000000;
+  static inline constexpr u32 IO_RAM_SIZE = 0x400;
 
-  static inline constexpr gword_t PALETTE_RAM_BASE = 0x05000000;
-  static inline constexpr gword_t PALETTE_RAM_SIZE = 0x400;
+  static inline constexpr u32 PALETTE_RAM_BASE = 0x05000000;
+  static inline constexpr u32 PALETTE_RAM_SIZE = 0x400;
 
-  static inline constexpr gword_t VIDEO_RAM_BASE = 0x06000000;
-  static inline constexpr gword_t VIDEO_RAM_SIZE = 0x18000;
+  static inline constexpr u32 VIDEO_RAM_BASE = 0x06000000;
+  static inline constexpr u32 VIDEO_RAM_SIZE = 0x18000;
 
-  static inline constexpr gword_t OAM_BASE = 0x07000000;
-  static inline constexpr gword_t OAM_SIZE = 0x400;
+  static inline constexpr u32 OAM_BASE = 0x07000000;
+  static inline constexpr u32 OAM_SIZE = 0x400;
 
-  static inline constexpr gword_t GAME_PAK_ROM_BASE = 0x08000000;
-  static inline constexpr gword_t GAME_PAK_IMG_1_BASE = 0x0A000000;
-  static inline constexpr gword_t GAME_PAK_IMG_2_BASE = 0x0C000000;
-  static inline constexpr gword_t GAME_PAK_ROM_SIZE = 0x2000000;
+  static inline constexpr u32 GAME_PAK_ROM_BASE = 0x08000000;
+  static inline constexpr u32 GAME_PAK_IMG_1_BASE = 0x0A000000;
+  static inline constexpr u32 GAME_PAK_IMG_2_BASE = 0x0C000000;
+  static inline constexpr u32 GAME_PAK_ROM_SIZE = 0x2000000;
 
-  byte system_rom[SYSTEM_ROM_SIZE];
-  byte ew_ram[EW_RAM_SIZE];
-  byte iw_ram[IW_RAM_SIZE];
-  byte io_ram[IO_RAM_SIZE];
-  byte io_ram_ext[8];
+  u8 system_rom[SYSTEM_ROM_SIZE];
+  u8 ew_ram[EW_RAM_SIZE];
+  u8 iw_ram[IW_RAM_SIZE];
+  u8 io_ram[IO_RAM_SIZE];
+  u8 io_ram_ext[8];
 
-  byte palette_ram[PALETTE_RAM_SIZE];
-  byte video_ram[VIDEO_RAM_SIZE];
-  byte oam[OAM_SIZE];
-  byte game_pak_rom[GAME_PAK_ROM_SIZE];
+  u8 palette_ram[PALETTE_RAM_SIZE];
+  u8 video_ram[VIDEO_RAM_SIZE];
+  u8 oam[OAM_SIZE];
+  u8 game_pak_rom[GAME_PAK_ROM_SIZE];
 
-  void invalid_read(gword_t addr) { throw addr; }
+  void invalid_read(u32 addr) { throw addr; }
 
-  gword_t &read(gword_t addr) {
+  u32 &read(u32 addr) {
     /**
      * Information for memory access timing emulation.
      *
@@ -75,8 +75,8 @@ struct Memory {
            *   *** Separate timings for sequential, and non-sequential accesses.
            *   One cycle equals approx. 59.59ns (ie. 16.78MHz clock).
            */
-        gword_t loc = addr & MEMORY_BLOCK_MASK;
-    gword_t offset = addr &
+        u32 loc = addr & MEMORY_BLOCK_MASK;
+    u32 offset = addr &
 
                      switch (loc) {
     case SYSTEM_ROM_BASE:
@@ -97,7 +97,7 @@ struct Memory {
       if (offset < IO_RAM_SIZE) {
         return io_ram[offset];
       } else {
-        gword_t mod = offset % 0x10000;
+        u32 mod = offset % 0x10000;
 
         if (mod == 0x800)
           return io_ram_ext[0];

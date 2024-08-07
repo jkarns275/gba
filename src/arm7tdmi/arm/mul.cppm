@@ -16,26 +16,26 @@ export {
              new IntegralPiece(4, "Rn"), new IntegralPiece(4, "Rs"),
              new ValuePiece(0b1001, 4), new IntegralPiece(4, "Rm")});
 
-    static constexpr gword_t MASK_A = flag_mask(21);
-    static constexpr gword_t MASK_S = flag_mask(20);
+    static constexpr u32 MASK_A = flag_mask(21);
+    static constexpr u32 MASK_S = flag_mask(20);
 
     bool a, s;
-    byte ird, irn, irs, irm;
+    u8 ird, irn, irs, irm;
 
-    MulShort(gword_t instruction)
+    MulShort(u32 instruction)
         : Ins(instruction), a(MASK_A & instruction), s(MASK_S & instruction),
           ird(nibbles[4]), irn(nibbles[3]), irs(nibbles[2]), irm(nibbles[0]) {}
 
-    MulShort(gword_t instruction, bool a, bool s, byte ird, byte irn, byte irs,
-             byte irm)
+    MulShort(u32 instruction, bool a, bool s, u8 ird, u8 irn, u8 irs,
+             u8 irm)
         : Ins(instruction), a(a), s(s), ird(ird), irn(irn), irs(irs), irm(irm) {
     }
 
     void execute(CpuState &state) override {
-      gword_t rn = state.read_register(irn), rs = state.read_register(irs),
+      u32 rn = state.read_register(irn), rs = state.read_register(irs),
               rm = state.read_register(irm);
 
-      gword_t value;
+      u32 value;
 
       if (a) {
         value = rm * rs + rn;
@@ -62,29 +62,29 @@ export {
              new RegPiece("Rs"), new ValuePiece(0b1001, 4),
              new IntegralPiece(4, "Rm")});
 
-    static inline const gword_t MASK_U = flag_mask(22);
-    static inline const gword_t MASK_A = flag_mask(21);
-    static inline const gword_t MASK_S = flag_mask(20);
+    static inline const u32 MASK_U = flag_mask(22);
+    static inline const u32 MASK_A = flag_mask(21);
+    static inline const u32 MASK_S = flag_mask(20);
 
     bool u, a, s;
-    byte ird_msw, ird_lsw, irs, irm;
+    u8 ird_msw, ird_lsw, irs, irm;
 
-    MulLong(gword_t instruction)
+    MulLong(u32 instruction)
         : Ins(instruction), u(MASK_U & instruction), a(MASK_A & instruction),
           s(MASK_S & instruction), ird_msw(nibbles[4]), ird_lsw(nibbles[3]),
           irs(nibbles[2]), irm(nibbles[0]) {}
 
     void execute(CpuState &state) override {
-      gword_t rd_lo = state.read_register(ird_lsw),
+      u32 rd_lo = state.read_register(ird_lsw),
               rd_hi = state.read_register(ird_msw),
               rs = state.read_register(irs), rm = state.read_register(irm);
 
       if (u) {
         // Unsigned
-        glong_t rm_long = rm, rs_long = rs, rd_long;
+        u64 rm_long = rm, rs_long = rs, rd_long;
 
         if (a) {
-          rd_long = rd_lo | ((glong_t)rd_hi) << 32;
+          rd_long = rd_lo | ((u64)rd_hi) << 32;
         } else {
           rd_long = 0;
         }
@@ -95,10 +95,10 @@ export {
         rd_hi = rd_long >> 32;
       } else {
         // Signed
-        signed_glong_t rm_long = rm, rs_long = rs, rd_long;
+        i64 rm_long = rm, rs_long = rs, rd_long;
 
         if (a) {
-          rd_long = rd_lo | ((signed_glong_t)rd_hi) << 32;
+          rd_long = rd_lo | ((i64)rd_hi) << 32;
         } else {
           rd_long = 0;
         }

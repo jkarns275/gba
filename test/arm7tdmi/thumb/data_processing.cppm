@@ -16,9 +16,9 @@ import test.arm7tdmi.test_utils;
 
 template <ArmInstructionType I>
 struct TDataProcessingTest : public ArmInstructionTestWithFlags<I> {
-  byte ird;
+  u8 ird;
 
-  TDataProcessingTest(byte ird, gword_t input_flags, gword_t output_flags)
+  TDataProcessingTest(u8 ird, u32 input_flags, u32 output_flags)
       : ArmInstructionTestWithFlags<I>(input_flags, output_flags), ird(ird) {}
 
   void prepare_state(CpuState &state) override {
@@ -33,7 +33,7 @@ struct TDataProcessingTest : public ArmInstructionTestWithFlags<I> {
     ArmInstructionTestWithFlags<I>::check_requirements(state);
   }
 
-  virtual gword_t expected_value(CpuState &state) = 0;
+  virtual u32 expected_value(CpuState &state) = 0;
 };
 
 enum AddSubOpcode {
@@ -41,13 +41,13 @@ enum AddSubOpcode {
   SUB = 1,
 };
 
-template <byte opcode>
+template <u8 opcode>
 struct TAddSubRegTest : public TDataProcessingTest<TAddSubReg> {
-  byte irm, irn;
-  gword_t rm, rn;
+  u8 irm, irn;
+  u32 rm, rn;
 
-  TAddSubRegTest(byte irm, gword_t rm, byte irn, gword_t rn, byte ird,
-                 gword_t input_flags, gword_t output_flags)
+  TAddSubRegTest(u8 irm, u32 rm, u8 irn, u32 rn, u8 ird,
+                 u32 input_flags, u32 output_flags)
       : TDataProcessingTest<TAddSubReg>(ird, input_flags, output_flags),
         irm(irm), irn(irn), rm(rm), rn(rn) {}
 
@@ -66,7 +66,7 @@ struct TAddSubRegTest : public TDataProcessingTest<TAddSubReg> {
     state.write_register(irm, rm);
   }
 
-  gword_t expected_value(CpuState &state) override {
+  u32 expected_value(CpuState &state) override {
     switch ((AddSubOpcode)opcode) {
     case AddSubOpcode::ADD:
       return rm + rn;
@@ -76,13 +76,13 @@ struct TAddSubRegTest : public TDataProcessingTest<TAddSubReg> {
   }
 };
 
-template <byte opcode>
+template <u8 opcode>
 struct TAddSubImmTest : public TDataProcessingTest<TAddSubImm> {
-  byte imm, irn;
-  gword_t rn;
+  u8 imm, irn;
+  u32 rn;
 
-  TAddSubImmTest(byte imm, byte irn, gword_t rn, byte ird, gword_t input_flags,
-                 gword_t output_flags)
+  TAddSubImmTest(u8 imm, u8 irn, u32 rn, u8 ird, u32 input_flags,
+                 u32 output_flags)
       : TDataProcessingTest<TAddSubImm>(ird, input_flags, output_flags),
         imm(imm), irn(irn), rn(rn) {}
 
@@ -100,7 +100,7 @@ struct TAddSubImmTest : public TDataProcessingTest<TAddSubImm> {
     state.write_register(irn, rn);
   }
 
-  gword_t expected_value(CpuState &state) override {
+  u32 expected_value(CpuState &state) override {
     switch ((AddSubOpcode)opcode) {
     case AddSubOpcode::ADD:
       return rn + imm;
@@ -115,8 +115,8 @@ TEST_CASE("THUMB SUB (1)") {
   auto irn = 1;
 
   SECTION("no flags") {
-    auto rn = GENERATE(take(10, random<gword_t>(0, 0x7FFFFFFF)));
-    auto imm = GENERATE(take(10, random<gword_t>(0, 7)));
+    auto rn = GENERATE(take(10, random<u32>(0, 0x7FFFFFFF)));
+    auto imm = GENERATE(take(10, random<u32>(0, 7)));
 
     TAddSubImmTest<AddSubOpcode::SUB> test(imm, irn, rn, ird, 0,
                                            CpuState::C_FLAG);
@@ -141,8 +141,8 @@ TEST_CASE("THUMB ADD (1)") {
   auto irn = 1;
 
   SECTION("no flags") {
-    auto rn = GENERATE(take(10, random<gword_t>(0, 0x7FFFFFFF - 16)));
-    auto imm = GENERATE(take(10, random<gword_t>(0, (1 << 3) - 1)));
+    auto rn = GENERATE(take(10, random<u32>(0, 0x7FFFFFFF - 16)));
+    auto imm = GENERATE(take(10, random<u32>(0, (1 << 3) - 1)));
 
     TAddSubImmTest<AddSubOpcode::ADD> test(imm, irn, rn, ird, 0, 0);
     test.test();
@@ -173,8 +173,8 @@ TEST_CASE("THUMB ADD (3)") {
   auto irn = 2;
 
   SECTION("no flags") {
-    auto rm = GENERATE(take(10, random<gword_t>(0, 10000)));
-    auto rn = GENERATE(take(10, random<gword_t>(0, 10000)));
+    auto rm = GENERATE(take(10, random<u32>(0, 10000)));
+    auto rn = GENERATE(take(10, random<u32>(0, 10000)));
 
     if (rm != rn) {
       TAddSubRegTest<AddSubOpcode::ADD> test(irm, rm, irn, rn, ird, 0, 0);
@@ -207,8 +207,8 @@ TEST_CASE("THUMB SUB (3)") {
   auto irn = 2;
 
   SECTION("no flag") {
-    auto rm = GENERATE(take(100, random<gword_t>(0, 100)));
-    auto rn = GENERATE(take(100, random<gword_t>(0, 100)));
+    auto rm = GENERATE(take(100, random<u32>(0, 100)));
+    auto rn = GENERATE(take(100, random<u32>(0, 100)));
 
     if (rm != rn) {
       auto output_flags = rn > rm ? CpuState::C_FLAG : CpuState::N_FLAG;
@@ -244,13 +244,13 @@ enum ImmOpcode {
   IMM_SUB = 3,
 };
 
-template <byte opcode>
+template <u8 opcode>
 struct TDataProcessingImmTest : public TDataProcessingTest<TDataProcessingImm> {
-  byte ir, imm;
-  gword_t r;
+  u8 ir, imm;
+  u32 r;
 
-  TDataProcessingImmTest(byte ir, gword_t r, byte imm, gword_t input_flags,
-                         gword_t output_flags)
+  TDataProcessingImmTest(u8 ir, u32 r, u8 imm, u32 input_flags,
+                         u32 output_flags)
       : TDataProcessingTest<TDataProcessingImm>(ir, input_flags, output_flags),
         ir(ir), imm(imm), r(r) {}
 
@@ -276,7 +276,7 @@ struct TDataProcessingImmTest : public TDataProcessingTest<TDataProcessingImm> {
     ArmInstructionTestWithFlags<TDataProcessingImm>::check_requirements(state);
   }
 
-  gword_t expected_value(CpuState &state) override {
+  u32 expected_value(CpuState &state) override {
     switch ((ImmOpcode)opcode) {
     case ImmOpcode::IMM_MOV:
       return imm;
@@ -294,8 +294,8 @@ TEST_CASE("THUMB ADD (2)") {
   auto ird = 0;
 
   SECTION("no flag") {
-    auto rd = GENERATE(take(100, random<gword_t>(0, 0x7FFFFFFF - 0x100)));
-    auto imm = GENERATE(take(100, random<gword_t>(0, 255)));
+    auto rd = GENERATE(take(100, random<u32>(0, 0x7FFFFFFF - 0x100)));
+    auto imm = GENERATE(take(100, random<u32>(0, 255)));
     TDataProcessingImmTest<ImmOpcode::IMM_ADD> test(ird, rd, imm, 0, 0);
     test.test();
   }
@@ -323,8 +323,8 @@ TEST_CASE("THUMB SUB (2)") {
   auto ird = 0;
 
   SECTION("no flag") {
-    auto rd = GENERATE(take(100, random<gword_t>(255, 0x7FFFFFFF - 0x100)));
-    auto imm = GENERATE(take(100, random<gword_t>(0, 255)));
+    auto rd = GENERATE(take(100, random<u32>(255, 0x7FFFFFFF - 0x100)));
+    auto imm = GENERATE(take(100, random<u32>(0, 255)));
     TDataProcessingImmTest<ImmOpcode::IMM_SUB> test(ird, rd, imm, 0,
                                                     CpuState::C_FLAG);
     test.test();
@@ -356,7 +356,7 @@ TEST_CASE("THUMB MOV (1)") {
   auto ird = 0;
 
   SECTION("no flag") {
-    auto imm = GENERATE(take(100, random<gword_t>(1, 255)));
+    auto imm = GENERATE(take(100, random<u32>(1, 255)));
     TDataProcessingImmTest<ImmOpcode::IMM_MOV> test(ird, 0, imm, 0, 0);
     test.test();
   }
@@ -373,7 +373,7 @@ TEST_CASE("THUMB CMP (1)") {
 
   SECTION("no flag") {
     auto rd = 256;
-    auto imm = GENERATE(take(100, random<gword_t>(0, 255)));
+    auto imm = GENERATE(take(100, random<u32>(0, 255)));
     TDataProcessingImmTest<ImmOpcode::IMM_CMP> test(ird, rd, imm, 0,
                                                     CpuState::C_FLAG);
     test.test();
@@ -398,13 +398,13 @@ TEST_CASE("THUMB CMP (1)") {
   }
 }
 
-template <byte opcode>
+template <u8 opcode>
 struct TDataProcessingRegTest : public TDataProcessingTest<TDataProcessing> {
-  byte irms, irdn;
-  gword_t rms, rdn;
+  u8 irms, irdn;
+  u32 rms, rdn;
 
-  TDataProcessingRegTest(byte irms, gword_t rms, byte irdn, gword_t rdn,
-                         gword_t input_flags, gword_t output_flags)
+  TDataProcessingRegTest(u8 irms, u32 rms, u8 irdn, u32 rdn,
+                         u32 input_flags, u32 output_flags)
       : TDataProcessingTest<TDataProcessing>(irdn, input_flags, output_flags),
         irms(irms), irdn(irdn), rms(rms), rdn(rdn) {}
 
@@ -439,7 +439,7 @@ struct TDataProcessingRegTest : public TDataProcessingTest<TDataProcessing> {
     ArmInstructionTestWithFlags<TDataProcessing>::check_requirements(state);
   }
 
-  gword_t expected_value(CpuState &state) override {
+  u32 expected_value(CpuState &state) override {
     switch (opcode) {
     // THUMB AND
     case Opcode::AND:
@@ -466,7 +466,7 @@ struct TDataProcessingRegTest : public TDataProcessingTest<TDataProcessing> {
       return ~rms;
     // ROR
     case Opcode::RSC: {
-      gword_t x = ror<gword_t>(rdn, rms & 0x1F);
+      u32 x = ror<u32>(rdn, rms & 0x1F);
       if (x & 0x80000000)
         output_flags |= CpuState::N_FLAG;
       if (!x)
@@ -477,7 +477,7 @@ struct TDataProcessingRegTest : public TDataProcessingTest<TDataProcessing> {
     }
     // LSR
     case Opcode::RSB: {
-      gword_t x = lsr<gword_t>(rdn, rms & 0xFF);
+      u32 x = lsr<u32>(rdn, rms & 0xFF);
       if (rms == 0) {
         output_flags |= CpuState::C_FLAG & input_flags;
       } else if (rms < 32) {
@@ -498,8 +498,8 @@ struct TDataProcessingRegTest : public TDataProcessingTest<TDataProcessing> {
     }
     // LSL
     case Opcode::SUB: {
-      gword_t shift = rms & 0xFF;
-      gword_t x = lsl<gword_t>(rdn, shift);
+      u32 shift = rms & 0xFF;
+      u32 x = lsl<u32>(rdn, shift);
       if (shift == 0) {
         output_flags |= CpuState::C_FLAG & input_flags;
         x = rdn;
@@ -520,7 +520,7 @@ struct TDataProcessingRegTest : public TDataProcessingTest<TDataProcessing> {
     }
     // ASR
     case Opcode::ADD: {
-      gword_t x = asr<signed_gword_t>(rdn, rms & 0xFF);
+      u32 x = asr<i32>(rdn, rms & 0xFF);
       if (rms == 0) {
         output_flags |= CpuState::C_FLAG & input_flags;
       } else if (rms < 32) {
@@ -561,8 +561,8 @@ TEST_CASE("THUMB AND") {
   auto ird = 1;
 
   SECTION("no flag") {
-    auto rd = GENERATE(take(100, random<gword_t>(0, 0x7FFFFFFF))) | 1;
-    auto rm = GENERATE(take(100, random<gword_t>(0, 0x7FFFFFFF))) | 1;
+    auto rd = GENERATE(take(100, random<u32>(0, 0x7FFFFFFF))) | 1;
+    auto rm = GENERATE(take(100, random<u32>(0, 0x7FFFFFFF))) | 1;
 
     TDataProcessingRegTest<Opcode::AND> test(irm, rm, ird, rd, 0, 0);
     test.test();
@@ -586,8 +586,8 @@ TEST_CASE("THUMB EOR") {
   auto ird = 1;
 
   SECTION("no flag") {
-    auto rd = GENERATE(take(100, random<gword_t>(0, 0x7FFFFFFF))) | 1;
-    auto rm = GENERATE(take(100, random<gword_t>(0, 0x7FFFFFF0)));
+    auto rd = GENERATE(take(100, random<u32>(0, 0x7FFFFFFF))) | 1;
+    auto rm = GENERATE(take(100, random<u32>(0, 0x7FFFFFF0)));
 
     TDataProcessingRegTest<Opcode::EOR> test(irm, rm, ird, rd, 0, 0);
     test.test();
@@ -611,8 +611,8 @@ TEST_CASE("THUMB ADC") {
   auto ird = 1;
 
   SECTION("no flag") {
-    auto rd = GENERATE(take(100, random<gword_t>(0, 0xFFFFFF))) | 1;
-    auto rm = GENERATE(take(100, random<gword_t>(0, 0xFFFFFF)));
+    auto rd = GENERATE(take(100, random<u32>(0, 0xFFFFFF))) | 1;
+    auto rm = GENERATE(take(100, random<u32>(0, 0xFFFFFF)));
 
     TDataProcessingRegTest<Opcode::ADC> test(irm, rm, ird, rd, 0, 0);
     test.test();
@@ -649,7 +649,7 @@ TEST_CASE("THUMB SBC") {
 
   SECTION("no flag") {
     auto rd = 0xFFFFFF;
-    auto rm = GENERATE(take(100, random<gword_t>(0, 0xFFFFFE)));
+    auto rm = GENERATE(take(100, random<u32>(0, 0xFFFFFE)));
 
     TDataProcessingRegTest<Opcode::SBC> test(irm, rm, ird, rd, CpuState::C_FLAG,
                                              CpuState::C_FLAG);
@@ -687,8 +687,8 @@ TEST_CASE("THUMB ORR") {
   auto ird = 1;
 
   SECTION("no flag") {
-    auto rd = GENERATE(take(100, random<gword_t>(0, 0x7FFFFFFF))) | 1;
-    auto rm = GENERATE(take(100, random<gword_t>(0, 0x7FFFFFF0)));
+    auto rd = GENERATE(take(100, random<u32>(0, 0x7FFFFFFF))) | 1;
+    auto rm = GENERATE(take(100, random<u32>(0, 0x7FFFFFF0)));
 
     TDataProcessingRegTest<Opcode::ORR> test(irm, rm, ird, rd, 0, 0);
     test.test();
@@ -712,8 +712,8 @@ TEST_CASE("THUMB BIC") {
   auto ird = 1;
 
   SECTION("no flag") {
-    auto rd = GENERATE(take(100, random<gword_t>(0, 0x7FFFFFFF))) | 1;
-    auto rm = GENERATE(take(100, random<gword_t>(0, 0x0FFFFFFF))) << 1;
+    auto rd = GENERATE(take(100, random<u32>(0, 0x7FFFFFFF))) | 1;
+    auto rm = GENERATE(take(100, random<u32>(0, 0x0FFFFFFF))) << 1;
 
     TDataProcessingRegTest<Opcode::BIC> test(irm, rm, ird, rd, 0, 0);
     test.test();
@@ -738,7 +738,7 @@ TEST_CASE("THUMB MVN") {
   auto rd = 0;
 
   SECTION("no flag") {
-    auto rm = GENERATE(take(100, random<gword_t>(1, 0x7FFFFFFE))) | 0x80000000;
+    auto rm = GENERATE(take(100, random<u32>(1, 0x7FFFFFFE))) | 0x80000000;
     TDataProcessingRegTest<Opcode::MVN> test(irm, rm, ird, rd, 0, 0);
     test.test();
   }
@@ -783,7 +783,7 @@ TEST_CASE("THUMB ROR") {
   auto irm = 0;
   auto ird = 1;
 
-  auto rd = GENERATE(take(100, random<gword_t>(1, 0x7FFFFFFE))) | 0x80000000;
+  auto rd = GENERATE(take(100, random<u32>(1, 0x7FFFFFFE))) | 0x80000000;
   SECTION("1-31") {
     auto rm = GENERATE(range(1, 30));
     TDataProcessingRegTest<ROR> test(irm, rm, ird, rd, 0, 0);
@@ -817,7 +817,7 @@ TEST_CASE("THUMB LSR") {
   auto irm = 0;
   auto ird = 1;
 
-  auto rd = GENERATE(take(100, random<gword_t>(0, 0xFFFFFFFF)));
+  auto rd = GENERATE(take(100, random<u32>(0, 0xFFFFFFFF)));
   SECTION("1-31") {
     auto rm = GENERATE(range(1, 31));
     TDataProcessingRegTest<LSR> test(irm, rm, ird, rd, 0, 0);
@@ -846,7 +846,7 @@ TEST_CASE("THUMB ASR") {
   auto irm = 0;
   auto ird = 1;
 
-  auto rd = GENERATE(take(100, random<gword_t>(0, 0xFFFFFFFF)));
+  auto rd = GENERATE(take(100, random<u32>(0, 0xFFFFFFFF)));
   SECTION("1-31") {
     auto rm = GENERATE(range(1, 31));
     TDataProcessingRegTest<ASR> test(irm, rm, ird, rd, 0, 0);
@@ -875,7 +875,7 @@ TEST_CASE("THUMB LSL") {
   auto irm = 0;
   auto ird = 1;
 
-  auto rd = GENERATE(take(100, random<gword_t>(0, 0xFFFFFFFF)));
+  auto rd = GENERATE(take(100, random<u32>(0, 0xFFFFFFFF)));
   SECTION("1-31") {
     auto rm = GENERATE(range(1, 31));
     TDataProcessingRegTest<LSL> test(irm, rm, ird, rd, 0, 0);
@@ -900,11 +900,11 @@ TEST_CASE("THUMB LSL") {
 }
 
 struct TMulTest : public ArmInstructionTestWithFlags<TMul> {
-  byte irm, ird;
-  gword_t rm, rd;
+  u8 irm, ird;
+  u32 rm, rd;
 
-  TMulTest(byte irm, gword_t rm, byte ird, gword_t rd, gword_t input_flags,
-           gword_t output_flags)
+  TMulTest(u8 irm, u32 rm, u8 ird, u32 rd, u32 input_flags,
+           u32 output_flags)
       : ArmInstructionTestWithFlags<TMul>(input_flags, output_flags), irm(irm),
         ird(ird), rm(rm), rd(rd) {}
 
@@ -928,28 +928,28 @@ struct TMulTest : public ArmInstructionTestWithFlags<TMul> {
     ArmInstructionTestWithFlags<TMul>::check_requirements(state);
   }
 
-  gword_t expected_value(CpuState &state) { return rm * rd; }
+  u32 expected_value(CpuState &state) { return rm * rd; }
 };
 
 TEST_CASE("THUMB MUL") {
-  const byte irm = 0;
-  const byte ird = 1;
+  const u8 irm = 0;
+  const u8 ird = 1;
 
   SECTION("no flags") {
-    auto rm = GENERATE(take(100, random<gword_t>(1, 0xFFF)));
-    auto rd = GENERATE(take(10, random<gword_t>(1, 0xFFF)));
+    auto rm = GENERATE(take(100, random<u32>(1, 0xFFF)));
+    auto rd = GENERATE(take(10, random<u32>(1, 0xFFF)));
     TMulTest test(irm, rm, ird, rd, 0, 0);
     test.test();
   }
 
   SECTION("N flag") {
-    auto rm = GENERATE(take(100, random<gword_t>(1, 0x7FFFFFFF)));
+    auto rm = GENERATE(take(100, random<u32>(1, 0x7FFFFFFF)));
     TMulTest test(irm, rm, ird, -1, 0, CpuState::N_FLAG);
     test.test();
   }
 
   SECTION("Z flag") {
-    auto rm = GENERATE(take(100, random<gword_t>(1, 0xFFFFFFFF)));
+    auto rm = GENERATE(take(100, random<u32>(1, 0xFFFFFFFF)));
     TMulTest test(irm, rm, ird, 0, 0, CpuState::Z_FLAG);
     test.test();
   }
@@ -961,14 +961,14 @@ enum HiRegOpcode {
   HI_MOV = 2,
 };
 
-template <byte opcode>
+template <u8 opcode>
 struct TDataProcessingHiRegTest
     : public TDataProcessingTest<TDataProcessingHiReg> {
-  byte irm, irdn;
-  gword_t rm, rdn;
+  u8 irm, irdn;
+  u32 rm, rdn;
 
-  TDataProcessingHiRegTest(byte irm, gword_t rm, byte irdn, gword_t rdn,
-                           gword_t input_flags, gword_t output_flags)
+  TDataProcessingHiRegTest(u8 irm, u32 rm, u8 irdn, u32 rdn,
+                           u32 input_flags, u32 output_flags)
       : TDataProcessingTest<TDataProcessingHiReg>(irdn, input_flags,
                                                   output_flags),
         irm(irm), irdn(irdn), rm(rm), rdn(rdn) {}
@@ -999,7 +999,7 @@ struct TDataProcessingHiRegTest
         state);
   }
 
-  gword_t expected_value(CpuState &state) override {
+  u32 expected_value(CpuState &state) override {
     switch ((HiRegOpcode)opcode) {
     case HiRegOpcode::HI_ADD:
       return rdn + rm;
@@ -1012,11 +1012,11 @@ struct TDataProcessingHiRegTest
 };
 
 TEST_CASE("THUMB MOV (3)") {
-  const byte irm = GENERATE(range(0, 15));
-  const byte ird = GENERATE(range(0, 15));
+  const u8 irm = GENERATE(range(0, 15));
+  const u8 ird = GENERATE(range(0, 15));
 
   if (irm != ird) {
-    auto rm = GENERATE(take(10, random<gword_t>(0, 0xFFFFFFFF)));
+    auto rm = GENERATE(take(10, random<u32>(0, 0xFFFFFFFF)));
 
     TDataProcessingHiRegTest<HI_MOV> test(irm, rm, ird, 0, 0, 0);
     test.test();
@@ -1024,12 +1024,12 @@ TEST_CASE("THUMB MOV (3)") {
 }
 
 TEST_CASE("THUMB ADD (4)") {
-  const byte irm = GENERATE(range(0, 15));
-  const byte ird = GENERATE(range(0, 15));
+  const u8 irm = GENERATE(range(0, 15));
+  const u8 ird = GENERATE(range(0, 15));
 
   if (irm != ird) {
-    auto rm = GENERATE(take(10, random<gword_t>(0, 0xFFFFFFFF)));
-    auto rd = GENERATE(take(10, random<gword_t>(0, 0xFFFFFFFF)));
+    auto rm = GENERATE(take(10, random<u32>(0, 0xFFFFFFFF)));
+    auto rd = GENERATE(take(10, random<u32>(0, 0xFFFFFFFF)));
 
     TDataProcessingHiRegTest<HI_ADD> test(irm, rm, ird, rd, 0, 0);
     test.test();
@@ -1037,8 +1037,8 @@ TEST_CASE("THUMB ADD (4)") {
 }
 
 TEST_CASE("THUMB CMP (3)") {
-  const byte irm = GENERATE(range(0, 15));
-  const byte ird = GENERATE(range(0, 15));
+  const u8 irm = GENERATE(range(0, 15));
+  const u8 ird = GENERATE(range(0, 15));
 
   if (irm != ird) {
     SECTION("N flag") {

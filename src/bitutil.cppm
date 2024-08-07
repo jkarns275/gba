@@ -29,24 +29,24 @@ export {
   }
 
   struct Nibbles {
-    gword_t word;
+    u32 word;
 
-    Nibbles(gword_t word) : word(word) {}
+    Nibbles(u32 word) : word(word) {}
 
-    inline constexpr byte operator[](size_t i) const noexcept {
+    inline constexpr u8 operator[](size_t i) const noexcept {
       return ((0b1111 << (4 * i)) & word) >> (4 * i);
     }
   };
 
 #define make_instruction_mask(x) (x << 25)
 
-  inline constexpr gword_t flag_mask(gword_t i) noexcept { return 1 << i; }
+  inline constexpr u32 flag_mask(u32 i) noexcept { return 1 << i; }
 
-  inline constexpr gword_t get_flag(gword_t ins, gword_t i) noexcept {
+  inline constexpr u32 get_flag(u32 ins, u32 i) noexcept {
     return (ins & (1 << i)) >> i;
   }
 
-  inline constexpr gword_t bitrange_mask(gword_t lo, gword_t hi) noexcept {
+  inline constexpr u32 bitrange_mask(u32 lo, u32 hi) noexcept {
     return ((1 << (hi + 1)) - 1) - (1 << (lo + 1));
   }
 

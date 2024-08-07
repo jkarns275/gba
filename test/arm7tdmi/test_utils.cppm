@@ -22,12 +22,12 @@ export {
 
   struct InstructionTestFixture {
     virtual void prepare_state(CpuState &state,
-                               unordered_map<string, gword_t> &value_map) {}
+                               unordered_map<string, u32> &value_map) {}
   };
 
   struct Test : public InstructionTestFixture {
 
-    unordered_map<string, gword_t> value_map;
+    unordered_map<string, u32> value_map;
 
     Test() {}
 
@@ -45,11 +45,11 @@ export {
     }
 
     virtual void prepare_state(CpuState &state,
-                               unordered_map<string, gword_t> &value_map) = 0;
+                               unordered_map<string, u32> &value_map) = 0;
   };
 
   template <ArmInstructionType I> struct ArmInstructionTest : public Test {
-    unordered_map<string, gword_t> value_map;
+    unordered_map<string, u32> value_map;
 
     ArmInstructionTest() {}
 
@@ -60,11 +60,11 @@ export {
     }
 
     void prepare_state(CpuState &state,
-                       unordered_map<string, gword_t> &value_map) override {}
+                       unordered_map<string, u32> &value_map) override {}
 
     void evaluate(CpuState &state) override {
       const InstructionDefinition &def = get_definition();
-      gword_t ins = def.build(value_map);
+      u32 ins = def.build(value_map);
       I(ins).execute(state);
     }
 
@@ -83,9 +83,9 @@ export {
 
   template <ArmInstructionType I>
   struct ArmInstructionTestWithFlags : public ArmInstructionTest<I> {
-    gword_t input_flags, output_flags;
+    u32 input_flags, output_flags;
 
-    ArmInstructionTestWithFlags(gword_t input_flags, gword_t output_flags)
+    ArmInstructionTestWithFlags(u32 input_flags, u32 output_flags)
         : ArmInstructionTest<I>(), input_flags(input_flags),
           output_flags(output_flags) {}
 

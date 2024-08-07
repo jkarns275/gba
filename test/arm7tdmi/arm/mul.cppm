@@ -20,11 +20,11 @@ using std::vector;
 
 struct MulShortTest : public ArmInstructionTestWithFlags<MulShort> {
   bool a, s;
-  byte ird, irn, irs, irm;
-  gword_t rn, rs, rm;
+  u8 ird, irn, irs, irm;
+  u32 rn, rs, rm;
 
-  MulShortTest(bool a, bool s, byte ird, byte irn, gword_t rn, byte irs,
-               gword_t rs, byte irm, gword_t rm)
+  MulShortTest(bool a, bool s, u8 ird, u8 irn, u32 rn, u8 irs,
+               u32 rs, u8 irm, u32 rm)
       : ArmInstructionTestWithFlags<MulShort>(0, 0), a(a), s(s), ird(ird),
         irn(irn), irs(irs), irm(irm), rn(rn), rs(rs), rm(rm) {}
 
@@ -49,7 +49,7 @@ struct MulShortTest : public ArmInstructionTestWithFlags<MulShort> {
   }
 
   void check_requirements(CpuState &state) override {
-    gword_t result = rm * rs;
+    u32 result = rm * rs;
     if (a)
       result += rn;
 
@@ -67,15 +67,15 @@ struct MulShortTest : public ArmInstructionTestWithFlags<MulShort> {
 };
 
 void mul_test(bool a, bool s) {
-  const byte IRM = 0;
-  const byte IRD = 1;
-  const byte IRN = 2;
-  const byte IRS = 3;
+  const u8 IRM = 0;
+  const u8 IRD = 1;
+  const u8 IRN = 2;
+  const u8 IRS = 3;
 
   SECTION("random") {
-    auto rm = GENERATE(take(100, random<gword_t>(0, -1)));
-    auto rs = GENERATE(take(10, random<gword_t>(0, -1)));
-    auto rn = GENERATE(take(10, random<gword_t>(0, -1)));
+    auto rm = GENERATE(take(100, random<u32>(0, -1)));
+    auto rs = GENERATE(take(10, random<u32>(0, -1)));
+    auto rn = GENERATE(take(10, random<u32>(0, -1)));
 
     MulShortTest test(a, s, IRD, IRN, rn, IRS, rs, IRM, rm);
     test.test();
@@ -101,12 +101,12 @@ TEST_CASE("MLAS") { mul_test(true, true); }
 
 struct MulLongTest : public ArmInstructionTestWithFlags<MulLong> {
   bool u, a, s;
-  byte ird_msw, ird_lsw, irs, irm;
-  gword_t rd_msw, rd_lsw, rs, rm;
+  u8 ird_msw, ird_lsw, irs, irm;
+  u32 rd_msw, rd_lsw, rs, rm;
 
-  MulLongTest(bool u, bool a, bool s, byte ird_msw, gword_t rd_msw,
-              byte ird_lsw, gword_t rd_lsw, byte irs, gword_t rs, byte irm,
-              gword_t rm)
+  MulLongTest(bool u, bool a, bool s, u8 ird_msw, u32 rd_msw,
+              u8 ird_lsw, u32 rd_lsw, u8 irs, u32 rs, u8 irm,
+              u32 rm)
       : ArmInstructionTestWithFlags<MulLong>(0, 0), u(u), a(a), s(s),
         ird_msw(ird_msw), ird_lsw(ird_lsw), irs(irs), irm(irm), rs(rs), rm(rm) {
   }
@@ -134,18 +134,18 @@ struct MulLongTest : public ArmInstructionTestWithFlags<MulLong> {
   }
 
   void check_requirements(CpuState &state) override {
-    gword_t target_msw, target_lsw;
-    glong_t product;
+    u32 target_msw, target_lsw;
+    u64 product;
 
     if (u) {
-      signed_glong_t sproduct = (signed_glong_t)rm * (signed_glong_t)rs;
+      i64 sproduct = (i64)rm * (i64)rs;
       product = sproduct;
     } else {
-      product = (glong_t)rm * (glong_t)rs;
+      product = (u64)rm * (u64)rs;
     }
 
     if (a) {
-      glong_t carry = rd_lsw | (((glong_t)rd_msw) << 32);
+      u64 carry = rd_lsw | (((u64)rd_msw) << 32);
       product += carry;
     }
 
@@ -167,16 +167,16 @@ struct MulLongTest : public ArmInstructionTestWithFlags<MulLong> {
 };
 
 void mul_long_test(bool u, bool a, bool s) {
-  const byte IRM = 0;
-  const byte IRD_LO = 1;
-  const byte IRD_HI = 2;
-  const byte IRS = 3;
+  const u8 IRM = 0;
+  const u8 IRD_LO = 1;
+  const u8 IRD_HI = 2;
+  const u8 IRS = 3;
 
   SECTION("random") {
-    auto rm = GENERATE(take(10, random<gword_t>(0, -1)));
-    auto rs = GENERATE(take(10, random<gword_t>(0, -1)));
-    auto rd_lo = GENERATE(take(10, random<gword_t>(0, -1)));
-    auto rd_hi = GENERATE(take(10, random<gword_t>(0, -1)));
+    auto rm = GENERATE(take(10, random<u32>(0, -1)));
+    auto rs = GENERATE(take(10, random<u32>(0, -1)));
+    auto rd_lo = GENERATE(take(10, random<u32>(0, -1)));
+    auto rd_hi = GENERATE(take(10, random<u32>(0, -1)));
 
     MulLongTest test(u, a, s, IRD_HI, rd_hi, IRD_LO, rd_lo, IRS, rs, IRM, rm);
     test.test();
@@ -184,7 +184,7 @@ void mul_long_test(bool u, bool a, bool s) {
 
   SECTION("zero") {
     auto rm = 0;
-    auto rs = GENERATE(take(10, random<gword_t>(0, -1)));
+    auto rs = GENERATE(take(10, random<u32>(0, -1)));
     auto rd_lo = 0;
     auto rd_hi = 0;
     MulLongTest test(u, a, s, IRD_HI, rd_hi, IRD_LO, rd_lo, IRS, rs, IRM, rm);

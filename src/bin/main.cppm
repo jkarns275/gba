@@ -35,9 +35,9 @@ int main() {
 
   // const InstructionDefinition &def = *dd;
   // auto it = def.begin();
-  // std::optional<gword_t> x;
+  // std::optional<u32> x;
 
-  // std::unordered_map<std::string, gword_t> ttt = {
+  // std::unordered_map<std::string, u32> ttt = {
   //   {"shift amount", 2},
   //   {"shift type", BitShift::LEFT},
   //   {"S", 1},
@@ -47,7 +47,7 @@ int main() {
   //   {"opcode", DataProcessing::Opcode::ADD},
   //   {"cond", 0b1111}
   // };
-  // gword_t ins = def.build(ttt);
+  // u32 ins = def.build(ttt);
   //
   // std::cout << std::format("{:>{}b}\n", ins, 32);
   //

@@ -19,12 +19,12 @@ using std::unordered_map;
 using std::vector;
 
 struct ImmShiftOperandTest : public Test {
-  byte shift_by, irm;
-  gword_t rm, flags;
+  u8 shift_by, irm;
+  u32 rm, flags;
   BitShift shift_type;
   ShifterOperandValue expected_value;
 
-  ImmShiftOperandTest(byte shift_by, byte irm, gword_t rm, gword_t flags,
+  ImmShiftOperandTest(u8 shift_by, u8 irm, u32 rm, u32 flags,
                       BitShift shift_type, ShifterOperandValue expected_value)
       : Test(), shift_by(shift_by), irm(irm), rm(rm), flags(flags),
         shift_type(shift_type), expected_value(expected_value) {}
@@ -40,19 +40,19 @@ struct ImmShiftOperandTest : public Test {
   }
 
   void prepare_state(CpuState &state,
-                     unordered_map<string, gword_t> &value_map) override {
+                     unordered_map<string, u32> &value_map) override {
     state.write_register(irm, rm);
     state.set_flag(flags);
   }
 };
 
 struct RegShiftOperandTest : public Test {
-  byte irs, irm;
-  gword_t rs, rm, flags;
+  u8 irs, irm;
+  u32 rs, rm, flags;
   BitShift shift_type;
   ShifterOperandValue expected_value;
 
-  RegShiftOperandTest(byte irs, gword_t rs, byte irm, gword_t rm, gword_t flags,
+  RegShiftOperandTest(u8 irs, u32 rs, u8 irm, u32 rm, u32 flags,
                       BitShift shift_type, ShifterOperandValue expected_value)
       : Test(), irs(irs), irm(irm), rs(rs), rm(rm), flags(flags),
         shift_type(shift_type), expected_value(expected_value) {}
@@ -68,17 +68,17 @@ struct RegShiftOperandTest : public Test {
   }
 
   void prepare_state(CpuState &state,
-                     unordered_map<string, gword_t> &value_map) override {
+                     unordered_map<string, u32> &value_map) override {
     state.write_register(irm, rm);
     state.write_register(irs, rs);
     state.set_flag(flags);
   }
 };
 
-const gword_t MAX = 0xFFFFFFFF;
+const u32 MAX = 0xFFFFFFFF;
 
 TEST_CASE("ImmShiftOperand::LEFT") {
-  const gword_t IRM = 0;
+  const u32 IRM = 0;
   SECTION("C flag") {
     ImmShiftOperandTest test_c_flag(0, IRM, 0, CpuState::C_FLAG, BitShift::LEFT,
                                     {0, 1});
@@ -111,11 +111,11 @@ TEST_CASE("ImmShiftOperand::LEFT") {
 }
 
 TEST_CASE("ImmShiftOperand::LRIGHT") {
-  const gword_t IRM = 0;
+  const u32 IRM = 0;
 
   SECTION("normal") {
     ImmShiftOperandTest test_normal(15, IRM, 1, 0, BitShift::LRIGHT,
-                                    {lsr<gword_t>(1, 15), 0});
+                                    {lsr<u32>(1, 15), 0});
     test_normal.test();
   }
 
@@ -137,15 +137,15 @@ TEST_CASE("ImmShiftOperand::LRIGHT") {
 }
 
 TEST_CASE("ImmShiftOperand::ARIGHT") {
-  const gword_t IRM = 0;
+  const u32 IRM = 0;
 
   SECTION("normal") {
     ImmShiftOperandTest test_normal(15, IRM, 1, 0, BitShift::ARIGHT,
-                                    {lsr<gword_t>(1, 15), 0});
+                                    {lsr<u32>(1, 15), 0});
     test_normal.test();
 
-    ImmShiftOperandTest test_normal_2(2, IRM, (gword_t)-4, 0, BitShift::ARIGHT,
-                                      {(gword_t)-1, 0});
+    ImmShiftOperandTest test_normal_2(2, IRM, (u32)-4, 0, BitShift::ARIGHT,
+                                      {(u32)-1, 0});
     test_normal_2.test();
   }
 
@@ -164,39 +164,39 @@ TEST_CASE("ImmShiftOperand::ARIGHT") {
     ImmShiftOperandTest test_carry_4(1, IRM, 1, 0, BitShift::ARIGHT, {0, 1});
     test_carry_4.test();
 
-    ImmShiftOperandTest test_carry_5(1, IRM, (gword_t)-2, 0, BitShift::ARIGHT,
-                                     {(gword_t)-1, 0});
+    ImmShiftOperandTest test_carry_5(1, IRM, (u32)-2, 0, BitShift::ARIGHT,
+                                     {(u32)-1, 0});
     test_carry_5.test();
 
-    ImmShiftOperandTest test_carry_6(1, IRM, (gword_t)-1, 0, BitShift::ARIGHT,
-                                     {(gword_t)-1, 1});
+    ImmShiftOperandTest test_carry_6(1, IRM, (u32)-1, 0, BitShift::ARIGHT,
+                                     {(u32)-1, 1});
     test_carry_6.test();
   }
 
   SECTION("overflow") {
     ImmShiftOperandTest test_over(31, IRM, MAX, 0, BitShift::ARIGHT,
-                                  {(gword_t)-1, 1});
+                                  {(u32)-1, 1});
     test_over.test();
   }
 }
 
 TEST_CASE("ImmShiftOperand::ROR") {
-  const gword_t IRM = 0;
+  const u32 IRM = 0;
 
   SECTION("normal") {
     ImmShiftOperandTest test_normal(15, IRM, 1, 0, BitShift::ROR,
-                                    {ror<gword_t>(1, 15), 0});
+                                    {ror<u32>(1, 15), 0});
     test_normal.test();
 
     auto imm = GENERATE(range(1, 31));
-    ImmShiftOperandTest test_normal_2(imm, IRM, (gword_t)-1, 0, BitShift::ROR,
-                                      {(gword_t)-1, 1});
+    ImmShiftOperandTest test_normal_2(imm, IRM, (u32)-1, 0, BitShift::ROR,
+                                      {(u32)-1, 1});
     test_normal_2.test();
   }
 
   SECTION("flag") {
-    ImmShiftOperandTest test_flag(0, IRM, (gword_t)-2, CpuState::C_FLAG,
-                                  BitShift::ROR, {(gword_t)-1, 0});
+    ImmShiftOperandTest test_flag(0, IRM, (u32)-2, CpuState::C_FLAG,
+                                  BitShift::ROR, {(u32)-1, 0});
     test_flag.test();
 
     ImmShiftOperandTest test_flag_2(0, IRM, 1, CpuState::C_FLAG, BitShift::ROR,
@@ -210,8 +210,8 @@ TEST_CASE("ImmShiftOperand::ROR") {
 }
 
 TEST_CASE("RegShiftOperand::LEFT") {
-  const gword_t IRM = 0;
-  const gword_t IRS = 1;
+  const u32 IRM = 0;
+  const u32 IRS = 1;
 
   SECTION("normal") {
     RegShiftOperandTest test(IRS, 1, IRM, 1, 0, BitShift::LEFT, {2, 0});
@@ -239,8 +239,8 @@ TEST_CASE("RegShiftOperand::LEFT") {
 }
 
 TEST_CASE("RegShiftOperand::LRIGHT") {
-  const gword_t IRM = 0;
-  const gword_t IRS = 1;
+  const u32 IRM = 0;
+  const u32 IRS = 1;
 
   SECTION("normal") {
     RegShiftOperandTest test(IRS, 1, IRM, 2, 0, BitShift::LRIGHT, {1, 0});
@@ -262,22 +262,22 @@ TEST_CASE("RegShiftOperand::LRIGHT") {
                                     {1, 1});
     test_flag_2.test();
 
-    RegShiftOperandTest test_flag_4(IRS, 32, IRM, (gword_t)-1, 0,
+    RegShiftOperandTest test_flag_4(IRS, 32, IRM, (u32)-1, 0,
                                     BitShift::LRIGHT, {0, 1});
     test_flag_4.test();
   }
 }
 
 TEST_CASE("RegShiftOperand::ARIGHT") {
-  const gword_t IRM = 0;
-  const gword_t IRS = 1;
+  const u32 IRM = 0;
+  const u32 IRS = 1;
 
   SECTION("normal") {
     RegShiftOperandTest test(IRS, 1, IRM, 2, 0, BitShift::ARIGHT, {1, 0});
     test.test();
 
-    RegShiftOperandTest test_2(IRS, 1, IRM, (gword_t)-2, 0, BitShift::ARIGHT,
-                               {(gword_t)-1, 0});
+    RegShiftOperandTest test_2(IRS, 1, IRM, (u32)-2, 0, BitShift::ARIGHT,
+                               {(u32)-1, 0});
     test_2.test();
 
     RegShiftOperandTest test_3(IRS, 44, IRM, 1, 0, BitShift::ARIGHT, {0, 0});
@@ -297,24 +297,24 @@ TEST_CASE("RegShiftOperand::ARIGHT") {
                                     {1, 1});
     test_flag_2.test();
 
-    RegShiftOperandTest test_flag_4(IRS, 32, IRM, (gword_t)-1, 0,
+    RegShiftOperandTest test_flag_4(IRS, 32, IRM, (u32)-1, 0,
                                     BitShift::ARIGHT, {0xFFFFFFFF, 1});
     test_flag_4.test();
   }
 }
 
 TEST_CASE("RegShiftOperand::ROR") {
-  const gword_t IRM = 0;
-  const gword_t IRS = 1;
+  const u32 IRM = 0;
+  const u32 IRS = 1;
 
   SECTION("normal") {
     RegShiftOperandTest test_normal(IRS, 15, IRM, 1, 0, BitShift::ROR,
-                                    {ror<gword_t>(1, 15), 0});
+                                    {ror<u32>(1, 15), 0});
     test_normal.test();
 
     auto imm = GENERATE(range(1, 31));
-    RegShiftOperandTest test_normal_2(IRS, imm, IRM, (gword_t)-1, 0,
-                                      BitShift::ROR, {(gword_t)-1, 1});
+    RegShiftOperandTest test_normal_2(IRS, imm, IRM, (u32)-1, 0,
+                                      BitShift::ROR, {(u32)-1, 1});
     test_normal_2.test();
   }
 

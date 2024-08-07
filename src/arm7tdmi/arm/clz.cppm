@@ -12,13 +12,13 @@ export {
              new RegPiece("Rd"), new Ones(4), new ValuePiece(0b0001, 4),
              new RegPiece("Rm")});
 
-    byte ird, irn;
+    u8 ird, irn;
 
-    CountLeadingZeros(gword_t instruction)
+    CountLeadingZeros(u32 instruction)
         : Ins(instruction), ird(nibbles[3]), irn(nibbles[0]) {}
 
     void execute(CpuState &state) override {
-      gword_t rn = state.read_register(irn);
+      u32 rn = state.read_register(irn);
 
       state.write_register(ird, count_leading_zeros(rn));
     }

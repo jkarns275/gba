@@ -11,27 +11,27 @@ import arm7tdmi.arm.operands;
 using std::variant;
 using std::vector;
 
-static constexpr gword_t GWORD_T_SIGN_BIT = ror<gword_t>(1, 1);
+static constexpr u32 GWORD_T_SIGN_BIT = ror<u32>(1, 1);
 
 export {
   ;
 
   struct CheckedResult {
-    gword_t value, carry, overflow;
+    u32 value, carry, overflow;
 
     // TODO: This can probably be made more efficient.
-    static CheckedResult add(gword_t x, gword_t y) {
-      gword_t result = x + y;
-      gword_t carry = result < x;
-      gword_t overflow = (x & GWORD_T_SIGN_BIT) == (y & GWORD_T_SIGN_BIT) &&
+    static CheckedResult add(u32 x, u32 y) {
+      u32 result = x + y;
+      u32 carry = result < x;
+      u32 overflow = (x & GWORD_T_SIGN_BIT) == (y & GWORD_T_SIGN_BIT) &&
                          (result & GWORD_T_SIGN_BIT) != (x & GWORD_T_SIGN_BIT);
       return {result, carry, overflow};
     }
 
-    static CheckedResult sub(gword_t x, gword_t y) {
-      gword_t result = x - y;
-      gword_t carry = result > x;
-      gword_t overflow = (x & GWORD_T_SIGN_BIT) != (y & GWORD_T_SIGN_BIT) &&
+    static CheckedResult sub(u32 x, u32 y) {
+      u32 result = x - y;
+      u32 carry = result > x;
+      u32 overflow = (x & GWORD_T_SIGN_BIT) != (y & GWORD_T_SIGN_BIT) &&
                          (result & GWORD_T_SIGN_BIT) != (x & GWORD_T_SIGN_BIT);
       return {result, carry, overflow};
     }
@@ -57,17 +57,17 @@ export {
                                    new RegPiece("Rd"), new RegPiece("rotate"),
                                    new IntegralPiece(8, "imm")})};
 
-    static inline constexpr gword_t N_FLAG = flag_mask(31);
-    static inline constexpr gword_t Z_FLAG = flag_mask(30);
-    static inline constexpr gword_t C_FLAG = flag_mask(29);
-    static inline constexpr gword_t V_FLAG = flag_mask(28);
-    static inline constexpr gword_t S_FLAG = flag_mask(20);
+    static inline constexpr u32 N_FLAG = flag_mask(31);
+    static inline constexpr u32 Z_FLAG = flag_mask(30);
+    static inline constexpr u32 C_FLAG = flag_mask(29);
+    static inline constexpr u32 V_FLAG = flag_mask(28);
+    static inline constexpr u32 S_FLAG = flag_mask(20);
 
     typedef variant<ImmShiftOperand, RegShiftOperand, RotateOperand,
                     ThumbOperand>
         Operand;
 
-    static inline Operand make_operand(gword_t instruction) {
+    static inline Operand make_operand(u32 instruction) {
       Nibbles nibbles(instruction);
 
       if (nibbles[6] & 0b0010) {
@@ -83,7 +83,7 @@ export {
       }
     }
 
-    enum Opcode : byte {
+    enum Opcode : u8 {
       AND = 0b0000,
       EOR = 0b0001,
       SUB = 0b0010,
@@ -103,17 +103,17 @@ export {
     } opcode;
 
     bool s;
-    byte irn, ird;
+    u8 irn, ird;
 
     Operand operand;
 
-    DataProcessing(gword_t instruction)
+    DataProcessing(u32 instruction)
         : Ins(instruction), opcode((Opcode)((instruction >> 21) & 0xF)),
           s(S_FLAG & instruction), irn(nibbles[4]), ird(nibbles[3]),
           operand(make_operand(instruction)) {}
 
-    DataProcessing(gword_t instruction, Opcode opcode, bool s, byte irn,
-                   byte ird, Operand operand)
+    DataProcessing(u32 instruction, Opcode opcode, bool s, u8 irn,
+                   u8 ird, Operand operand)
         : Ins(instruction), opcode(opcode), s(s), irn(irn), ird(ird),
           operand(operand) {}
 
@@ -122,16 +122,16 @@ export {
           std::visit([&](ShifterOperand &op) { return op.evaluate(state); },
                      this->operand);
 
-      gword_t op = operand.value;
-      gword_t carry = operand.carry;
-      gword_t carry_flag = bool(state.get_flag(CpuState::C_FLAG));
+      u32 op = operand.value;
+      u32 carry = operand.carry;
+      u32 carry_flag = bool(state.get_flag(CpuState::C_FLAG));
 
-      gword_t rd;
-      gword_t rn = state.read_register(irn);
-      gword_t cpsr = state.read_cpsr();
+      u32 rd;
+      u32 rn = state.read_register(irn);
+      u32 cpsr = state.read_cpsr();
 
-      gword_t cond_code_mask = Z_FLAG | N_FLAG;
-      gword_t overflow = 0;
+      u32 cond_code_mask = Z_FLAG | N_FLAG;
+      u32 overflow = 0;
 
       switch (opcode) {
       case AND:
@@ -258,7 +258,7 @@ export {
         } else {
         set_flags:
           cpsr &= ~cond_code_mask;
-          gword_t mask = (rd == 0 ? Z_FLAG : 0) |
+          u32 mask = (rd == 0 ? Z_FLAG : 0) |
                          (rd & GWORD_T_SIGN_BIT ? N_FLAG : 0) |
                          (overflow ? V_FLAG : 0) | (carry ? C_FLAG : 0);
           cpsr |= mask & cond_code_mask;

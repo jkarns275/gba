@@ -15,10 +15,10 @@ import arm7tdmi.instruction;
 import test.arm7tdmi.test_utils;
 
 struct SoftwareInterruptTest : public ArmInstructionTest<SoftwareInterrupt> {
-  gword_t number;
-  gword_t flags;
+  u32 number;
+  u32 flags;
 
-  SoftwareInterruptTest(gword_t number, gword_t flags)
+  SoftwareInterruptTest(u32 number, u32 flags)
       : ArmInstructionTest<SoftwareInterrupt>(), number(number), flags(flags) {}
 
   const InstructionDefinition &get_definition() override {
@@ -45,7 +45,7 @@ struct SoftwareInterruptTest : public ArmInstructionTest<SoftwareInterrupt> {
 };
 
 TEST_CASE("SWI") {
-  auto number = GENERATE(take(100, random<gword_t>(0, 0xFFFFFF)));
+  auto number = GENERATE(take(100, random<u32>(0, 0xFFFFFF)));
   auto flags = GENERATE(CpuState::T_FLAG, CpuState::F_FLAG,
                         CpuState::T_FLAG | CpuState::F_FLAG, CpuState::V_FLAG);
 
