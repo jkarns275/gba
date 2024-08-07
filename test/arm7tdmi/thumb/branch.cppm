@@ -31,8 +31,8 @@ struct TBranchExchangeTest : public TBranchTest<TBranchExchange> {
   bool exchange, link;
 
   TBranchExchangeTest(byte irm, gword_t rm, gword_t pc, bool link)
-    : TBranchTest<TBranchExchange>(),
-      irm(irm), rm(rm), pc(pc), exchange(rm & 1), link(link) {}
+      : TBranchTest<TBranchExchange>(), irm(irm), rm(rm), pc(pc),
+        exchange(rm & 1), link(link) {}
 
   const InstructionDefinition &get_definition() override {
     return *TBranchExchange::definition;
@@ -52,7 +52,7 @@ struct TBranchExchangeTest : public TBranchTest<TBranchExchange> {
 
   void check_requirements(CpuState &state) override {
     TBranchTest<TBranchExchange>::check_requirements(state);
-   
+
     REQUIRE(state.get_flag(CpuState::T_FLAG) == exchange);
 
     if (link) {
@@ -60,9 +60,7 @@ struct TBranchExchangeTest : public TBranchTest<TBranchExchange> {
     }
   }
 
-  gword_t expected_value(CpuState &state) override {
-    return rm & 0xFFFFFFFE;
-  }
+  gword_t expected_value(CpuState &state) override { return rm & 0xFFFFFFFE; }
 };
 
 TEST_CASE("THUMB BX") {

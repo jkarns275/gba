@@ -22,13 +22,10 @@ struct TShiftImmTest : public ArmInstructionTestWithFlags<TShiftImm> {
   gword_t rm;
   byte ird;
 
-  TShiftImmTest(byte opcode, byte imm, byte irm, gword_t rm, byte ird, gword_t input_flags, gword_t output_flags)
-    : ArmInstructionTestWithFlags<TShiftImm>(input_flags, output_flags),
-      opcode(opcode),
-      imm(imm),
-      irm(irm),
-      rm(rm),
-      ird(ird) {}
+  TShiftImmTest(byte opcode, byte imm, byte irm, gword_t rm, byte ird,
+                gword_t input_flags, gword_t output_flags)
+      : ArmInstructionTestWithFlags<TShiftImm>(input_flags, output_flags),
+        opcode(opcode), imm(imm), irm(irm), rm(rm), ird(ird) {}
 
   void prepare_state(CpuState &state) override {
     ArmInstructionTestWithFlags<TShiftImm>::prepare_state(state);
@@ -39,15 +36,16 @@ struct TShiftImmTest : public ArmInstructionTestWithFlags<TShiftImm> {
     value_map["imm5"] = imm;
 
     state.write_register(irm, rm);
-    
-    ShifterOperandValue op = ImmShiftOperand(imm, irm, (BitShift) opcode).evaluate(state);
+
+    ShifterOperandValue op =
+        ImmShiftOperand(imm, irm, (BitShift)opcode).evaluate(state);
 
     if (op.value == 0)
       this->output_flags |= CpuState::Z_FLAG;
-    
+
     if (CpuState::N_FLAG & op.value)
       this->output_flags |= CpuState::N_FLAG;
-    
+
     this->output_flags |= op.carry ? CpuState::C_FLAG : 0;
   }
 
@@ -62,31 +60,25 @@ struct TShiftImmTest : public ArmInstructionTestWithFlags<TShiftImm> {
   }
 
   ShifterOperandValue expected_value(CpuState &state) {
-    return ImmShiftOperand(imm, irm, (BitShift) opcode).evaluate(state);
+    return ImmShiftOperand(imm, irm, (BitShift)opcode).evaluate(state);
   }
 };
 
 void shift_test(BitShift shift_type) {
   const gword_t IRD = 0;
   const gword_t IRM = 1;
-  
+
   auto rm = GENERATE(take(100, random<gword_t>(0, -1)));
   auto imm = GENERATE(range(0, 31));
- 
+
   SECTION(std::format("rm = {:x}, imm = {:x}", rm, imm)) {
     TShiftImmTest test(shift_type, imm, IRM, rm, IRD, 0, 0);
     test.test();
   }
 }
 
-TEST_CASE("THUMB LSL (1)") {
-  shift_test(BitShift::LEFT);
-}
+TEST_CASE("THUMB LSL (1)") { shift_test(BitShift::LEFT); }
 
-TEST_CASE("THUMB LSR (1)") {
-  shift_test(BitShift::LRIGHT);
-}
+TEST_CASE("THUMB LSR (1)") { shift_test(BitShift::LRIGHT); }
 
-TEST_CASE("THUMB ASR (1)") {
-  shift_test(BitShift::ARIGHT);
-}
+TEST_CASE("THUMB ASR (1)") { shift_test(BitShift::ARIGHT); }

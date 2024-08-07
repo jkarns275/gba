@@ -15,12 +15,13 @@ using std::string;
 using std::unordered_map;
 
 TEST_CASE("CLZ") {
-  unordered_map<string, gword_t> values = CountLeadingZeros::definition->generate_value_map();
+  unordered_map<string, gword_t> values =
+      CountLeadingZeros::definition->generate_value_map();
   values["Rm"] = 14;
-  
+
   SimpleMemory memory;
   CpuState state(memory);
-  
+
   for (gword_t i = 0; i < 14; i++) {
     values["Rd"] = i;
     for (gword_t j = 0; j < 33; j++) {

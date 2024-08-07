@@ -1,11 +1,11 @@
 module;
 
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <iostream>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators_all.hpp>
+#include <iostream>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 export module test.arm7tdmi.arm.mul;
 
@@ -15,19 +15,18 @@ import arm7tdmi.instruction;
 import test.arm7tdmi.test_utils;
 
 using std::string;
-using std::vector;
 using std::unordered_map;
+using std::vector;
 
 struct MulShortTest : public ArmInstructionTestWithFlags<MulShort> {
   bool a, s;
   byte ird, irn, irs, irm;
   gword_t rn, rs, rm;
 
-  MulShortTest(bool a, bool s, byte ird, byte irn, gword_t rn, byte irs, gword_t rs, byte irm, gword_t rm)
-    : ArmInstructionTestWithFlags<MulShort>(0, 0),
-      a(a), s(s),
-      ird(ird), irn(irn), irs(irs), irm(irm),
-      rn(rn), rs(rs), rm(rm) { }
+  MulShortTest(bool a, bool s, byte ird, byte irn, gword_t rn, byte irs,
+               gword_t rs, byte irm, gword_t rm)
+      : ArmInstructionTestWithFlags<MulShort>(0, 0), a(a), s(s), ird(ird),
+        irn(irn), irs(irs), irm(irm), rn(rn), rs(rs), rm(rm) {}
 
   const InstructionDefinition &get_definition() override {
     return *MulShort::definition;
@@ -59,7 +58,7 @@ struct MulShortTest : public ArmInstructionTestWithFlags<MulShort> {
     if (s) {
       if (result == 0)
         output_flags |= CpuState::Z_FLAG;
-      
+
       output_flags |= result & CpuState::N_FLAG;
 
       ArmInstructionTestWithFlags<MulShort>::check_requirements(state);
@@ -86,38 +85,31 @@ void mul_test(bool a, bool s) {
     auto rm = 0;
     auto rs = 123123;
     auto rn = 0;
-    
+
     MulShortTest test(a, s, IRD, IRN, rn, IRS, rs, IRM, rm);
     test.test();
   }
 }
 
-TEST_CASE("MUL") {
-  mul_test(false, false);
-}
+TEST_CASE("MUL") { mul_test(false, false); }
 
-TEST_CASE("MULS") {
-  mul_test(false, true);
-}
+TEST_CASE("MULS") { mul_test(false, true); }
 
-TEST_CASE("MLA") {
-  mul_test(true, false);
-}
+TEST_CASE("MLA") { mul_test(true, false); }
 
-TEST_CASE("MLAS") {
-  mul_test(true, true);
-}
+TEST_CASE("MLAS") { mul_test(true, true); }
 
 struct MulLongTest : public ArmInstructionTestWithFlags<MulLong> {
   bool u, a, s;
   byte ird_msw, ird_lsw, irs, irm;
   gword_t rd_msw, rd_lsw, rs, rm;
 
-  MulLongTest(bool u, bool a, bool s, byte ird_msw, gword_t rd_msw, byte ird_lsw, gword_t rd_lsw, byte irs, gword_t rs, byte irm, gword_t rm)
-    : ArmInstructionTestWithFlags<MulLong>(0, 0),
-      u(u), a(a), s(s),
-      ird_msw(ird_msw), ird_lsw(ird_lsw), irs(irs), irm(irm),
-      rs(rs), rm(rm) { }
+  MulLongTest(bool u, bool a, bool s, byte ird_msw, gword_t rd_msw,
+              byte ird_lsw, gword_t rd_lsw, byte irs, gword_t rs, byte irm,
+              gword_t rm)
+      : ArmInstructionTestWithFlags<MulLong>(0, 0), u(u), a(a), s(s),
+        ird_msw(ird_msw), ird_lsw(ird_lsw), irs(irs), irm(irm), rs(rs), rm(rm) {
+  }
 
   const InstructionDefinition &get_definition() override {
     return *MulLong::definition;
@@ -146,14 +138,14 @@ struct MulLongTest : public ArmInstructionTestWithFlags<MulLong> {
     glong_t product;
 
     if (u) {
-      signed_glong_t sproduct = (signed_glong_t) rm * (signed_glong_t) rs;
+      signed_glong_t sproduct = (signed_glong_t)rm * (signed_glong_t)rs;
       product = sproduct;
     } else {
-      product = (glong_t) rm * (glong_t) rs;
+      product = (glong_t)rm * (glong_t)rs;
     }
 
     if (a) {
-      glong_t carry = rd_lsw | (((glong_t) rd_msw) << 32);
+      glong_t carry = rd_lsw | (((glong_t)rd_msw) << 32);
       product += carry;
     }
 
@@ -166,7 +158,7 @@ struct MulLongTest : public ArmInstructionTestWithFlags<MulLong> {
     if (s) {
       if (product == 0)
         output_flags |= CpuState::Z_FLAG;
-      
+
       output_flags |= target_msw & CpuState::N_FLAG;
 
       ArmInstructionTestWithFlags<MulLong>::check_requirements(state);

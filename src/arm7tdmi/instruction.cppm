@@ -9,12 +9,11 @@ export import arm7tdmi.instruction_definition;
 export {
   ;
 
-struct Ins {
-  Nibbles nibbles;
+  struct Ins {
+    Nibbles nibbles;
 
-  Ins(gword_t instruction) : nibbles(instruction) {}
+    Ins(gword_t instruction) : nibbles(instruction) {}
 
-  virtual void execute(CpuState &cpu_state) {}
-};
-
+    virtual void execute(CpuState &cpu_state) {}
+  };
 }

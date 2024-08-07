@@ -1,11 +1,11 @@
 module;
 
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <iostream>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators_all.hpp>
+#include <iostream>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 export module test.arm7tdmi.arm.swap;
 
@@ -19,9 +19,10 @@ struct SingleDataSwapTest : public ArmInstructionTest<SingleDataSwap> {
   byte ird, irn, irm;
   gword_t rn, rm, value;
 
-  SingleDataSwapTest(bool b, byte ird, byte irn, gword_t rn, byte irm, gword_t rm, gword_t value)
-    : ArmInstructionTest<SingleDataSwap>(),
-      b(b), ird(ird), irn(irn), irm(irm), rn(rn), rm(rm), value(value) { }
+  SingleDataSwapTest(bool b, byte ird, byte irn, gword_t rn, byte irm,
+                     gword_t rm, gword_t value)
+      : ArmInstructionTest<SingleDataSwap>(), b(b), ird(ird), irn(irn),
+        irm(irm), rn(rn), rm(rm), value(value) {}
 
   const InstructionDefinition &get_definition() override {
     return *SingleDataSwap::definition;

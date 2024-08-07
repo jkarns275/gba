@@ -1,11 +1,11 @@
 module;
 
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <iostream>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators_all.hpp>
+#include <iostream>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 export module test.arm7tdmi.arm.swi;
 
@@ -19,8 +19,7 @@ struct SoftwareInterruptTest : public ArmInstructionTest<SoftwareInterrupt> {
   gword_t flags;
 
   SoftwareInterruptTest(gword_t number, gword_t flags)
-    : ArmInstructionTest<SoftwareInterrupt>(),
-      number(number), flags(flags) { }
+      : ArmInstructionTest<SoftwareInterrupt>(), number(number), flags(flags) {}
 
   const InstructionDefinition &get_definition() override {
     return *SoftwareInterrupt::definition;
@@ -30,7 +29,7 @@ struct SoftwareInterruptTest : public ArmInstructionTest<SoftwareInterrupt> {
     ArmInstructionTest<SoftwareInterrupt>::prepare_state(state);
 
     state.set_flag(flags);
-    
+
     value_map["swi_number"] = number;
   }
 
@@ -47,7 +46,8 @@ struct SoftwareInterruptTest : public ArmInstructionTest<SoftwareInterrupt> {
 
 TEST_CASE("SWI") {
   auto number = GENERATE(take(100, random<gword_t>(0, 0xFFFFFF)));
-  auto flags = GENERATE(CpuState::T_FLAG, CpuState::F_FLAG, CpuState::T_FLAG | CpuState::F_FLAG, CpuState::V_FLAG);
+  auto flags = GENERATE(CpuState::T_FLAG, CpuState::F_FLAG,
+                        CpuState::T_FLAG | CpuState::F_FLAG, CpuState::V_FLAG);
 
   SoftwareInterruptTest test(number, flags);
   test.test();

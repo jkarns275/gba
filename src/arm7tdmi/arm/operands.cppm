@@ -9,82 +9,82 @@ import arm7tdmi.instruction;
 export {
   ;
 
-enum BitShift : byte {
-  LEFT    = 0b00,
-  LRIGHT  = 0b01,
-  ARIGHT  = 0b10,
-  ROR     = 0b11
-};
+  enum BitShift : byte {
+    LEFT = 0b00,
+    LRIGHT = 0b01,
+    ARIGHT = 0b10,
+    ROR = 0b11
+  };
 
-struct ShifterOperandValue {
-  gword_t value;
-  gword_t carry;
-};
+  struct ShifterOperandValue {
+    gword_t value;
+    gword_t carry;
+  };
 
-struct ShifterOperand {
-  virtual ShifterOperandValue evaluate(CpuState &state) = 0;
-};
+  struct ShifterOperand {
+    virtual ShifterOperandValue evaluate(CpuState &state) = 0;
+  };
 
-struct RotateOperand : public ShifterOperand {
-  byte rotate, imm;
+  struct RotateOperand : public ShifterOperand {
+    byte rotate, imm;
 
-  RotateOperand(byte rotate, byte imm) : rotate(rotate & 0xF), imm(imm & 0xFF) { }
+    RotateOperand(byte rotate, byte imm)
+        : rotate(rotate & 0xF), imm(imm & 0xFF) {}
 
-  RotateOperand(gword_t instruction) {
-    Nibbles nibbles(instruction);
-    
-    rotate = nibbles[2];
-    imm = instruction & 0xFF;
-  }
+    RotateOperand(gword_t instruction) {
+      Nibbles nibbles(instruction);
 
-  ShifterOperandValue evaluate(CpuState &state) override {
-    constexpr gword_t MASK = flag_mask(31);
+      rotate = nibbles[2];
+      imm = instruction & 0xFF;
+    }
 
-    gword_t shifter = ror<gword_t>(imm, rotate * 2);
-    gword_t carry = rotate ? bool(shifter & MASK) : state.get_flag(CpuState::C_FLAG);
-    return { shifter, carry };
-  }
-};
+    ShifterOperandValue evaluate(CpuState &state) override {
+      constexpr gword_t MASK = flag_mask(31);
 
-struct ThumbOperand : public ShifterOperand {
-  byte irm;
+      gword_t shifter = ror<gword_t>(imm, rotate * 2);
+      gword_t carry =
+          rotate ? bool(shifter & MASK) : state.get_flag(CpuState::C_FLAG);
+      return {shifter, carry};
+    }
+  };
 
-  ThumbOperand(byte irm) : irm(irm) { }
+  struct ThumbOperand : public ShifterOperand {
+    byte irm;
 
-  ShifterOperandValue evaluate(CpuState &state) override {
-    return { state.read_register(irm), 0 };
-  }
-};
+    ThumbOperand(byte irm) : irm(irm) {}
 
-struct ImmShiftOperand : public ShifterOperand {
-  byte shift_by, irm;
-  BitShift shift_type;
-  
-  ImmShiftOperand(byte shift_by, byte irm, BitShift shift_type)
-    : shift_by(shift_by),
-      irm(irm),
-      shift_type(shift_type) { }
+    ShifterOperandValue evaluate(CpuState &state) override {
+      return {state.read_register(irm), 0};
+    }
+  };
 
-  ImmShiftOperand(gword_t instruction) {
-    Nibbles nibbles(instruction);
+  struct ImmShiftOperand : public ShifterOperand {
+    byte shift_by, irm;
+    BitShift shift_type;
 
-    shift_by = std::min<byte>(31, (byte) ((instruction & 0xF80) >> 7));
-    irm = nibbles[0];
-    shift_type = (BitShift) ((nibbles[1] & 0b0110) >> 1);
-  }
+    ImmShiftOperand(byte shift_by, byte irm, BitShift shift_type)
+        : shift_by(shift_by), irm(irm), shift_type(shift_type) {}
 
-  ShifterOperandValue evaluate(CpuState &state) override {
-    constexpr gword_t MASK = flag_mask(31);
-    gword_t reg = state.read_register(irm);
+    ImmShiftOperand(gword_t instruction) {
+      Nibbles nibbles(instruction);
 
-    if (irm == 0xF)
-      reg += 8;
-    
-    gword_t value, carry;
-    if (shift_by) {
-      carry = bool(flag_mask(shift_by - 1) & reg);
-      
-      switch (shift_type) {
+      shift_by = std::min<byte>(31, (byte)((instruction & 0xF80) >> 7));
+      irm = nibbles[0];
+      shift_type = (BitShift)((nibbles[1] & 0b0110) >> 1);
+    }
+
+    ShifterOperandValue evaluate(CpuState &state) override {
+      constexpr gword_t MASK = flag_mask(31);
+      gword_t reg = state.read_register(irm);
+
+      if (irm == 0xF)
+        reg += 8;
+
+      gword_t value, carry;
+      if (shift_by) {
+        carry = bool(flag_mask(shift_by - 1) & reg);
+
+        switch (shift_type) {
         case LEFT:
           value = reg << shift_by;
           carry = bool(flag_mask(32 - shift_by) & reg);
@@ -93,7 +93,7 @@ struct ImmShiftOperand : public ShifterOperand {
         case LRIGHT:
           value = lsr<gword_t>(reg, shift_by);
           break;
-          
+
         case ARIGHT:
           value = asr<signed_gword_t>(reg, shift_by);
           break;
@@ -101,11 +101,11 @@ struct ImmShiftOperand : public ShifterOperand {
         case ROR:
           value = ror<gword_t>(reg, shift_by);
           break;
-      }
-    } else {
-      carry = bool(reg & MASK);
+        }
+      } else {
+        carry = bool(reg & MASK);
 
-      switch (shift_type) {
+        switch (shift_type) {
         case LEFT: {
           value = reg;
           carry = state.get_flag(CpuState::C_FLAG);
@@ -116,7 +116,7 @@ struct ImmShiftOperand : public ShifterOperand {
           carry = bool(MASK & reg);
           break;
         }
-          
+
         case ARIGHT: {
           if (reg & MASK)
             value = -1;
@@ -130,39 +130,37 @@ struct ImmShiftOperand : public ShifterOperand {
           carry = reg & 1;
           break;
         }
+        }
       }
+
+      return {value, carry};
     }
-    
-    return { value, carry };
-  }
-};
+  };
 
-struct RegShiftOperand : public ShifterOperand {
-  byte irs, irm;
-  BitShift shift_type;
+  struct RegShiftOperand : public ShifterOperand {
+    byte irs, irm;
+    BitShift shift_type;
 
-  RegShiftOperand(byte irs, byte irm, BitShift shift_type) 
-    : irs(irs),
-      irm(irm),
-      shift_type(shift_type) {}
+    RegShiftOperand(byte irs, byte irm, BitShift shift_type)
+        : irs(irs), irm(irm), shift_type(shift_type) {}
 
-  RegShiftOperand(gword_t instruction) {
-    Nibbles nibbles(instruction);
+    RegShiftOperand(gword_t instruction) {
+      Nibbles nibbles(instruction);
 
-    irs = nibbles[2];
-    irm = nibbles[0];
-    shift_type = (BitShift) ((nibbles[1] & 0b0110) >> 1);
-  }
-  
-  ShifterOperandValue evaluate(CpuState &state) override {
-    gword_t rs = state.read_register(irs);
-    gword_t rm = state.read_register(irm);
+      irs = nibbles[2];
+      irm = nibbles[0];
+      shift_type = (BitShift)((nibbles[1] & 0b0110) >> 1);
+    }
 
-    gword_t shift = rs & 0xFF;
-    
-    gword_t value, carry;
+    ShifterOperandValue evaluate(CpuState &state) override {
+      gword_t rs = state.read_register(irs);
+      gword_t rm = state.read_register(irm);
 
-    switch (shift_type) {
+      gword_t shift = rs & 0xFF;
+
+      gword_t value, carry;
+
+      switch (shift_type) {
       case LEFT:
         if (shift == 0) {
           value = rm;
@@ -226,10 +224,9 @@ struct RegShiftOperand : public ShifterOperand {
         }
         break;
       }
+      }
+
+      return {value, bool(carry)};
     }
-
-    return { value, bool(carry) };
-  }
-};
-
+  };
 }
