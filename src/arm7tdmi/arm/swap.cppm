@@ -1,5 +1,8 @@
-export module arm7tdmi.arm.swap;
+module;
+#include <spdlog/spdlog.h>
+export module arm7tdmi.arm:swap;
 
+import arm7tdmi;
 import arm7tdmi.instruction;
 
 export {
@@ -24,15 +27,15 @@ export {
 
     void execute(CpuState &state) override {
       u32 rd, rn = state.read_register(irn), rm = state.read_register(irm);
+
       if (b) {
-        u8 temp = state.u8_at(rn);
-        state.u8_at(rn) = rm;
-        rd = temp;
+        rd = state.read<u8>(rn);
+        state.write<u8>(rn, rm);
       } else {
-        u32 temp = state.rotated_at(rn);
-        state.at(rn) = rm;
-        rd = temp;
+        rd = state.rotated_at(rn);
+        state.write<u32>(rn, rm);
       }
+
       state.write_register(ird, rd);
     }
   };

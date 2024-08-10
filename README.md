@@ -3,14 +3,15 @@ This codebase contains code for a GBA emulator. It is written in modern C++ and 
 
 The goal of this project is largely to create a well documented, comprehensible, and tested emulator to serve as an example. There is a strong focus on readability at the expense of performance -- there is no doubt that this will not be the fastest possible GBA emulator, but that really shouldn't be a problem given the fact that the ARM7TDMI is a very old chip.
 
-The following features are in development:
+Features will be developed in roughly the following order:
 - CPU:
   - ~~ARM instructions (behavior)~~
   - ~~ARM instructions (tests)~~
   - ~~THUMB instructions (behavior)~~
+  - Execution pipeline
+  - THUMB instructions (tests) (partial)
   - Cycle accurate memory accesses
   - Cycle accurate instruction execution
-  - Execution pipeline
 - Graphics:
   - Create list of graphics features
 - Sound

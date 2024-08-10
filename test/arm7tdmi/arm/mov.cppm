@@ -7,8 +7,11 @@ module;
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators_all.hpp>
 
+#include <spdlog/spdlog.h>
+
 export module test.arm7tdmi.arm.mov;
 
+import arm7tdmi;
 import arm7tdmi.arm;
 import arm7tdmi.instruction;
 
@@ -150,12 +153,13 @@ struct LoadOffsetTest : public LoadStoreBaseTest<LoadStoreOffset> {
     addressing_mode.prepare_state(state, value_map);
 
     if (b) {
-      state.u8_at(address) = value & 0xFF;
+      state.write<u8>(address, value & 0xFF);
     } else {
-      state.at(address) = value;
+      state.write<u32>(address, value);
     }
 
     value_map["I"] = addressing_mode.get_i();
+    value_map["B"] = b;
   }
 
   const InstructionDefinition &get_definition() override {
@@ -178,16 +182,10 @@ struct LoadOffsetTest : public LoadStoreBaseTest<LoadStoreOffset> {
 
     i32 sign = u ? 1 : -1;
     switch (switch_case(p, w)) {
-    case switch_case(false, false):
-    case switch_case(false, true):
-      REQUIRE(state.read_register(irn) +
-              sign * addressing_mode.get_offset(state));
-      break;
-    case switch_case(true, false):
-      break;
     case switch_case(true, true):
       REQUIRE(state.read_register(irn) == address);
       break;
+    default:
     }
   }
 };
@@ -295,9 +293,9 @@ struct StoreOffsetTest : public LoadStoreBaseTest<LoadStoreOffset> {
 
   void check_requirements(CpuState &state) override {
     if (b) {
-      REQUIRE(state.u8_at(address) == (value & 0xFF));
+      REQUIRE(state.read<u8>(address) == (value & 0xFF));
     } else {
-      REQUIRE(state.at(address) == value);
+      REQUIRE(state.read<u32>(address & ~0b11) == value);
     }
 
     i32 sign = u ? 1 : -1;
@@ -352,13 +350,13 @@ struct LoadTest : public LoadStoreBaseTest<LoadStore> {
       __builtin_unreachable();
       break;
     case switch_case(false, true):
-      state.short_at(address) = value & 0xFFFF;
+      state.write<u16>(address, value & 0xFFFF);
       break;
     case switch_case(true, false):
-      state.i8_at(address) = value & 0xFF;
+      state.write<i8>(address, value & 0xFF);
       break;
     case switch_case(true, true):
-      state.signed_short_at(address) = value & 0xFFFF;
+      state.write<i16>(address, value & 0xFFFF);
       break;
     }
 
@@ -620,15 +618,15 @@ struct StoreMultipleTest : public LoadStoreMultipleTest {
       if (register_list & flag_mask(i)) {
         if (i == irn) {
           if (s && (i == 13 || i == 14)) {
-            REQUIRE(state.at(base) == 0xFFFF0 + i);
+            REQUIRE(state.read<u32>(base) == 0xFFFF0 + i);
           } else {
-            REQUIRE(state.at(base) == rn);
+            REQUIRE(state.read<u32>(base) == rn);
           }
         } else {
           if (i == 15) {
-            REQUIRE(state.at(base) == 0xFFFFF + 8);
+            REQUIRE(state.read<u32>(base) == 0xFFFFF + 8);
           } else {
-            REQUIRE(state.at(base) == 0xFFFF0 + i);
+            REQUIRE(state.read<u32>(base) == 0xFFFF0 + i);
           }
         }
         base += 4;
@@ -708,7 +706,7 @@ struct LoadMultipleTest : public LoadStoreMultipleTest {
     }
 
     for (u32 i = 0; i < 16; i++) {
-      state.at(address) = 0xFFFF0 + i;
+      state.write(address, 0xFFFF0 + i);
       state.write_register(i, 0xAAAA0 + i);
       address += 4;
     }

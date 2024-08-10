@@ -3,10 +3,11 @@ module;
 #include <variant>
 #include <vector>
 
-export module arm7tdmi.arm.data_processing;
+export module arm7tdmi.arm:data_processing;
 
+import arm7tdmi;
 import arm7tdmi.instruction;
-import arm7tdmi.arm.operands;
+import :operands;
 
 using std::variant;
 using std::vector;

@@ -8,6 +8,7 @@ module;
 
 export module test.arm7tdmi.thumb.data_processing;
 
+import arm7tdmi;
 import arm7tdmi.arm;
 import arm7tdmi.thumb;
 import arm7tdmi.instruction;

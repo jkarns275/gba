@@ -1,5 +1,6 @@
-export module arm7tdmi.arm.clz;
+export module arm7tdmi.arm:clz;
 
+import arm7tdmi;
 import arm7tdmi.instruction;
 
 export {

@@ -2,8 +2,9 @@ module;
 #include <algorithm>
 #include <iostream>
 
-export module arm7tdmi.arm.operands;
+export module arm7tdmi.arm:operands;
 
+import arm7tdmi;
 import arm7tdmi.instruction;
 
 export {

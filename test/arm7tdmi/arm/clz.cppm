@@ -5,9 +5,11 @@ module;
 #include <unordered_map>
 
 #include <catch2/catch_test_macros.hpp>
+#include <spdlog/spdlog.h>
 
 export module test.arm7tdmi.arm.clz;
 
+import arm7tdmi;
 import arm7tdmi.arm;
 import arm7tdmi.instruction;
 
@@ -24,14 +26,18 @@ TEST_CASE("CLZ") {
 
   for (u32 i = 0; i < 14; i++) {
     values["Rd"] = i;
-    for (u32 j = 0; j < 33; j++) {
+    CountLeadingZeros clz(CountLeadingZeros::definition->build(values));
+    for (u32 j = 0; j < 32; j++) {
       state.write_register(14, 1u << j);
 
-      CountLeadingZeros clz(CountLeadingZeros::definition->build(values));
       clz.execute(state);
-
       REQUIRE(state.read_register(14) == 1u << j);
       REQUIRE(state.read_register(i) == count_leading_zeros(1u << j));
     }
   }
+
+  values["Rd"] = 0;
+  state.write_register(14, -1);
+  CountLeadingZeros clz(CountLeadingZeros::definition->build(values));
+  REQUIRE(state.read_register(0) == 0);
 }

@@ -9,6 +9,7 @@ module;
 
 export module test.arm7tdmi.arm.operand;
 
+import arm7tdmi;
 import arm7tdmi.arm;
 import arm7tdmi.instruction;
 

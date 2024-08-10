@@ -4,7 +4,7 @@ module;
 
 export module test.arm7tdmi.cpu_state;
 
-import arm7tdmi.cpu_state;
+import arm7tdmi;
 
 TEST_CASE("test", "[nan]") { REQUIRE(1 == 1); }
 TEST_CASE("test2", "[nan]") { REQUIRE(1 == 1); }

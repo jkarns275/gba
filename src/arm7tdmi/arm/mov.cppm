@@ -1,14 +1,16 @@
 module;
 #include <assert.h>
 #include <iostream>
+#include <spdlog/spdlog.h>
 #include <utility>
 #include <variant>
 #include <vector>
 
-export module arm7tdmi.arm.mov;
+export module arm7tdmi.arm:mov;
 
+import arm7tdmi;
 import arm7tdmi.instruction;
-import arm7tdmi.arm.operands;
+import :operands;
 
 using std::variant;
 using std::vector;
@@ -149,26 +151,26 @@ export {
 
       switch (switch_pair(integral_type, s)) {
       case switch_pair(BYTE, true): {
-        i32 word = state.i8_at(address);
+        i32 word = state.read<i8>(address);
         rd = word;
         break;
       }
 
       case switch_pair(SHORT, false): {
-        u32 word = state.short_at(address);
+        u32 word = state.read<u16>(address);
         rd = word;
         break;
       }
 
       case switch_pair(SHORT, true): {
-        i32 word = state.signed_short_at(address);
+        i32 word = state.read<i16>(address);
         rd = word;
         break;
       }
 
       case switch_pair(WORD, false):
       case switch_pair(WORD, true):
-        rd = state.at(address);
+        rd = state.read<u32>(address);
         break;
 
       // Not implemented since these instructions dont exist in arm7tdmi
@@ -189,8 +191,7 @@ export {
 
       switch (switch_pair(integral_type, s)) {
       case switch_pair(SHORT, false): {
-        u16 &data = state.short_at(address);
-        data = rd;
+        state.write<u16>(address, rd);
         break;
       }
       // Storing a word / u8 / signed short are all covered in other
@@ -418,7 +419,7 @@ export {
 
         switch (data_type) {
         case BYTE:
-          rd = (u32)state.memory.u8_at(addr, mode);
+          rd = (u32)state.memory.read<u8>(addr, mode);
           break;
         case WORD:
           rd = state.memory.rotated_at(addr, mode);
@@ -427,10 +428,10 @@ export {
       } else {
         switch (data_type) {
         case BYTE:
-          state.u8_at(addr) = rd;
+          state.write<u8>(addr, rd);
           break;
         case WORD:
-          state.at(addr & ~(0b11)) = rd;
+          state.write<u32>(addr & ~(0b11), rd);
           break;
         }
       }
@@ -491,7 +492,7 @@ export {
 
         for (int i = 0; i < 15; i++) {
           if ((1 << i) & register_list) {
-            state.write_register(i, state.at(address), mode);
+            state.write_register(i, state.read<u32>(address), mode);
             address += 4;
           }
         }
@@ -500,7 +501,7 @@ export {
           if (s)
             state.write_cpsr(state.read_spsr());
 
-          state.write_pc(state.at(address) & MASK_PC_ASSIGNMENT);
+          state.write_pc(state.read<u32>(address) & MASK_PC_ASSIGNMENT);
           address += 4;
         }
 
@@ -509,7 +510,7 @@ export {
 
         for (int i = 0; i < 16; i++) {
           if ((1 << i) & register_list) {
-            state.at(address) = state.read_register(i, mode);
+            state.write<u32>(address, state.read_register(i, mode));
             address += 4;
           }
         }

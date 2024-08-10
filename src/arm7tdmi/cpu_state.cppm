@@ -1,18 +1,18 @@
-#ifndef GBA_ARM7TDMI_CPU_STATE
-#define GBA_ARM7TDMI_CPU_STATE
 module;
-
 #include <assert.h>
-
 #include <format>
 #include <iostream>
 #include <variant>
 #include <vector>
 
-export module arm7tdmi.cpu_state;
+export module arm7tdmi:cpu_state;
 
 import bitutil;
 import types;
+
+import :mode;
+import :exception;
+import :memory;
 
 using std::format;
 using std::variant;
@@ -20,44 +20,6 @@ using std::vector;
 
 export {
   ;
-
-  enum Mode : u8 {
-    USR = 0b10000,
-    FIQ = 0b10001,
-    IRQ = 0b10010,
-    SVC = 0b10011,
-    ABT = 0b10111,
-    UND = 0b11011,
-    SYS = 0b11111,
-  };
-
-  bool mode_is_privileged(Mode mode) { return mode != USR; }
-
-  bool mode_has_spsr(Mode mode) { return mode != USR && mode != SYS; }
-
-  bool mode_is_valid(Mode mode) {
-    switch (mode) {
-    case USR:
-    case FIQ:
-    case IRQ:
-    case SVC:
-    case ABT:
-    case UND:
-    case SYS:
-      return true;
-    default:
-      return false;
-    }
-  }
-
-  constexpr u32 STATUS_NEGATIVE_MASK = flag_mask(31);
-  constexpr u32 STATUS_ZERO_MASK = flag_mask(30);
-  constexpr u32 STATUS_CARRY_MASK = flag_mask(29);
-  constexpr u32 STATUS_OVERFLOW_MASK = flag_mask(28);
-  constexpr u32 STATUS_IRQ_DISABLE_MASK = 1 << 7;
-  constexpr u32 STATUS_FIQ_DISABLE_MASK = 1 << 6;
-  constexpr u32 STATUS_STATE_MASK = 1 << 5;
-  constexpr u32 STATUS_MODE_MASK = (1 << 5) - 1;
 
   enum Cond : u8 {
     EQ = 0b0000,
@@ -76,77 +38,6 @@ export {
     LE = 0b1101,
     AL = 0b1110,
     NV = 0b1111,
-  };
-
-  class Exception {
-    enum EKind { EBL, ESWI, EUDEF, EPABT, EFIQ, EIRQ, EDABT, ERESET };
-
-    EKind kind;
-
-    u32 offset_arm(u32 status_register) {
-      assert(kind != ERESET);
-      switch (kind) {
-      case EBL:
-      case ESWI:
-      case EUDEF:
-        return (status_register & STATUS_STATE_MASK) ? 2 : 4;
-      case EPABT:
-      case EFIQ:
-      case EIRQ:
-        return 4;
-      case EDABT:
-        return 8;
-      default:
-        __builtin_unreachable();
-      }
-    }
-  };
-
-  struct Memory {
-
-    void invalid_read(u32 addr) { throw addr; }
-
-    virtual u64 &long_at(u32 addr, Mode mode) = 0;
-    virtual i64 &signed_long_at(u32 addr, Mode mode) = 0;
-
-    virtual u32 &at(u32 addr, Mode mode) = 0;
-    virtual i32 &signed_at(u32 addr, Mode mode) = 0;
-
-    virtual u16 &short_at(u32 addr, Mode mode) = 0;
-    virtual i16 &signed_short_at(u32 addr, Mode mode) = 0;
-
-    virtual u8 &u8_at(u32 addr, Mode mode) = 0;
-    virtual i8 &i8_at(u32 addr, Mode mode) = 0;
-
-    u32 rotated_at(u32 addr, Mode mode) {
-      return ror<u32>(at(addr, mode), 8 * (addr & 0b11));
-    }
-  };
-
-  struct SimpleMemory : public Memory {
-    u8 data[0x3000] = {0};
-
-    u64 &long_at(u32 addr, Mode mode) override {
-      return ((u64 *)data)[addr / 8];
-    }
-    i64 &signed_long_at(u32 addr, Mode mode) override {
-      return ((i64 *)data)[addr / 8];
-    }
-
-    u32 &at(u32 addr, Mode mode) override { return ((u32 *)data)[addr / 4]; }
-    i32 &signed_at(u32 addr, Mode mode) override {
-      return ((i32 *)data)[addr / 4];
-    }
-
-    u16 &short_at(u32 addr, Mode mode) override {
-      return ((u16 *)data)[addr / 2];
-    }
-    i16 &signed_short_at(u32 addr, Mode mode) override {
-      return ((i16 *)data)[addr / 2];
-    }
-
-    u8 &u8_at(u32 addr, Mode mode) override { return data[addr]; }
-    i8 &i8_at(u32 addr, Mode mode) override { return ((i8 *)data)[addr]; }
   };
 
   struct CpuState {
@@ -172,12 +63,12 @@ export {
     static inline constexpr u32 INDEX_LR = 14;
     static inline constexpr u32 INDEX_SP = 13;
 
-    u32 reg[16] = {0};
-    u32 reg_bank_fiq[7] = {0};
-    u32 reg_bank_svc[2] = {0};
-    u32 reg_bank_abt[2] = {0};
-    u32 reg_bank_irq[2] = {0};
-    u32 reg_bank_und[2] = {0};
+    u32 reg[16] = {};
+    u32 reg_bank_fiq[7] = {};
+    u32 reg_bank_svc[2] = {};
+    u32 reg_bank_abt[2] = {};
+    u32 reg_bank_irq[2] = {};
+    u32 reg_bank_und[2] = {};
 
     u32 cpsr = 0;
 
@@ -185,7 +76,7 @@ export {
 
     Memory &memory;
 
-    CpuState(Memory &memory) : memory(memory) {}
+    CpuState(Memory &memory) : memory(memory) { memory.cpu_state = this; }
 
     bool is_thumb_mode() { return cpsr & CpuState::T_FLAG; }
 
@@ -378,32 +269,24 @@ export {
       }
     }
 
-    inline u64 &long_at(u32 addr) { return memory.long_at(addr, get_mode()); }
-
-    inline i64 &signed_long_at(u32 addr) {
-      return memory.signed_long_at(addr, get_mode());
+    template <Integral I> inline I read(u32 addr, Mode mode) {
+      return memory.read<I>(addr, mode);
     }
 
-    inline u32 &at(u32 addr) { return memory.at(addr, get_mode()); }
-
-    inline i32 &signed_at(u32 addr) {
-      return memory.signed_at(addr, get_mode());
+    template <Integral I> inline I read(u32 addr) {
+      return read<I>(addr, get_mode());
     }
 
-    inline u16 &short_at(u32 addr) { return memory.short_at(addr, get_mode()); }
-
-    inline i16 &signed_short_at(u32 addr) {
-      return memory.signed_short_at(addr, get_mode());
+    template <Integral I> inline void write(u32 addr, I value, Mode mode) {
+      return memory.write<I>(addr, value, mode);
     }
 
-    inline u8 &u8_at(u32 addr) { return memory.u8_at(addr, get_mode()); }
-
-    inline i8 &i8_at(u32 addr) { return memory.i8_at(addr, get_mode()); }
+    template <Integral I> inline void write(u32 addr, I value) {
+      return write(addr, value, get_mode());
+    }
 
     inline u32 rotated_at(u32 addr) {
       return memory.rotated_at(addr, get_mode());
     }
   };
 }
-
-#endif

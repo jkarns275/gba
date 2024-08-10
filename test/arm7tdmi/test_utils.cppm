@@ -8,6 +8,7 @@ module;
 
 export module test.arm7tdmi.test_utils;
 
+import arm7tdmi;
 import arm7tdmi.arm;
 import arm7tdmi.instruction;
 

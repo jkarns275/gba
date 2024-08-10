@@ -1,5 +1,6 @@
-export module arm7tdmi.arm.swi;
+export module arm7tdmi.arm:swi;
 
+import arm7tdmi;
 import arm7tdmi.instruction;
 
 export {

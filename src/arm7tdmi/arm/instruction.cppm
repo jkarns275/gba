@@ -7,16 +7,17 @@ module;
 
 export module arm7tdmi.arm;
 
+import arm7tdmi;
 import arm7tdmi.instruction;
 
-export import arm7tdmi.arm.branch;
-export import arm7tdmi.arm.clz;
-export import arm7tdmi.arm.data_processing;
-export import arm7tdmi.arm.mov;
-export import arm7tdmi.arm.mul;
-export import arm7tdmi.arm.operands;
-export import arm7tdmi.arm.swap;
-export import arm7tdmi.arm.swi;
+export import :branch;
+export import :clz;
+export import :data_processing;
+export import :mov;
+export import :mul;
+export import :operands;
+export import :swap;
+export import :swi;
 
 using std::string;
 using std::unordered_map;

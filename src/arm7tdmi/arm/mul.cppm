@@ -1,8 +1,9 @@
 module;
 #include <iostream>
 
-export module arm7tdmi.arm.mul;
+export module arm7tdmi.arm:mul;
 
+import arm7tdmi;
 import arm7tdmi.instruction;
 
 export {

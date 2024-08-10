@@ -62,9 +62,9 @@ struct Memory {
      *   Work RAM 256K 16    8/16/32   8/16/32   3/3/6 **
      *   Palette RAM   16    8/16/32   16/32     1/1/2 *
      *   VRAM          16    8/16/32   16/32     1/1/2 *
-     *   GamePak ROM   16    8/16/32   -         5/5/8 **/
-    ****GamePak Flash 16 8 / 16 / 32 16 / 32 5 / 5 / 8 *
-        * /***
+     *   GamePak ROM   16    8/16/32   -         5/5/8 **
+     *   GamePak Flash 16 8 / 16 / 32 16 / 32 5 / 5 / 8 *
+          /***
            *   GamePak SRAM  8     8         8         5     **
            *
            * Timing Notes:
@@ -74,7 +74,7 @@ struct Memory {
            *   *** Separate timings for sequential, and non-sequential accesses.
            *   One cycle equals approx. 59.59ns (ie. 16.78MHz clock).
            */
-        u32 loc = addr & MEMORY_BLOCK_MASK;
+    u32 loc = addr & MEMORY_BLOCK_MASK;
     u32 offset = addr &
 
                  switch (loc) {

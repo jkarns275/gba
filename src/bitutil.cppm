@@ -1,6 +1,3 @@
-#ifndef GBA_BITUTIL_HXX
-#define GBA_BITUTIL_HXX
-
 module;
 #include <bit>
 #include <concepts>
@@ -12,15 +9,6 @@ import types;
 
 export {
   ;
-
-  template <class T>
-  concept Integral = std::is_integral<T>::value;
-
-  template <class T>
-  concept SignedIntegral = Integral<T> && std::is_signed<T>::value;
-
-  template <class T>
-  concept UnsignedIntegral = Integral<T> && !SignedIntegral<T>;
 
   template <Integral itype>
   constexpr itype bitmask(itype i, uint32_t n) noexcept {
@@ -84,5 +72,3 @@ export {
     return std::countl_zero(x);
   }
 }
-
-#endif

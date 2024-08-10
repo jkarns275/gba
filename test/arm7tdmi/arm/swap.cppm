@@ -9,6 +9,7 @@ module;
 
 export module test.arm7tdmi.arm.swap;
 
+import arm7tdmi;
 import arm7tdmi.arm;
 import arm7tdmi.instruction;
 
@@ -34,9 +35,9 @@ struct SingleDataSwapTest : public ArmInstructionTest<SingleDataSwap> {
     state.write_register(irm, rm);
 
     if (b) {
-      state.u8_at(rn) = value;
+      state.write<u8>(rn, value);
     } else {
-      state.at(rn) = value;
+      state.write<u32>(rn, value);
     }
 
     value_map["Rn"] = irn;
@@ -48,11 +49,11 @@ struct SingleDataSwapTest : public ArmInstructionTest<SingleDataSwap> {
   void check_requirements(CpuState &state) override {
     if (b) {
       REQUIRE(state.read_register(ird) == (value & 0xFF));
-      REQUIRE(state.u8_at(rn) == (rm & 0xFF));
+      REQUIRE(state.read<u8>(rn) == (rm & 0xFF));
     } else {
       u32 target_data = ror<u32>(value, (rn & 0b11) * 8);
       REQUIRE(state.read_register(ird) == target_data);
-      REQUIRE(state.at(rn) == rm);
+      REQUIRE(state.read<u32>(rn) == rm);
     }
   }
 };

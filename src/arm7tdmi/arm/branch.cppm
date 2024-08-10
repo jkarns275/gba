@@ -2,8 +2,9 @@ module;
 #include <iostream>
 #include <spdlog/spdlog.h>
 
-export module arm7tdmi.arm.branch;
+export module arm7tdmi.arm:branch;
 
+import arm7tdmi;
 import arm7tdmi.instruction;
 
 export {
