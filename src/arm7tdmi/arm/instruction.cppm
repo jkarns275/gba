@@ -1,9 +1,9 @@
 module;
-#include <iostream>
-#include <string>
-#include <unordered_map>
-#include <variant>
+#include <format>
+#include <memory>
 #include <vector>
+
+#include <spdlog/spdlog.h>
 
 export module arm7tdmi.arm;
 
@@ -19,179 +19,128 @@ export import :operands;
 export import :swap;
 export import :swi;
 
+using std::format;
+using std::make_unique;
 using std::string;
-using std::unordered_map;
-using std::variant;
-using std::vector;
+using std::unique_ptr;
 
 export {
   ;
 
   struct UndefinedInstruction : public Ins {
-    u32 instruction;
+    UndefinedInstruction(u32 instruction) : Ins(instruction) {}
 
-    UndefinedInstruction(u32 instruction) : Ins(instruction) {
-      // assert(validate_instruction(UndefinedInstruction::DEFINITIONS,
-      // instruction));
+    void execute(CpuState &state) override {}
+
+    std::string disassemble() override {
+      return std::format("{:#8x} <UNRECOGNIZED INSTRUCTION>", nibbles.word);
     }
+  };
+
+  inline constexpr u32 get_cond(u32 i) { return i >> 28; }
+
+  unique_ptr<Ins> data_processing_000x(u32 i) {
+    Nibbles nibbles(i);
+    if (((i >> 23) & 0b11) == 0b10 &&
+        !(i & flag_mask(DataProcessing::S_FLAG))) {
+      switch (nibbles[1] | (nibbles[5] << 4)) {
+      case 0b00000000:
+      case 0b01000000:
+        // Move status register to register
+        return make_unique<MovStatusToReg>(i);
+      case 0b00100000:
+      case 0b01100000:
+        // Move register to status
+        return make_unique<MovToStatus>(i);
+      case 0b01100001:
+        // CLZ
+        return make_unique<CountLeadingZeros>(i);
+      case 0b00100001:
+        // Branch and link / exchange
+      case 0b00100011:
+        // Branch exchange
+        return make_unique<BranchExchange>(i);
+      default:
+        // Drop through to normal case
+      }
+    }
+
+    if ((nibbles[1] & 0b1001) == 0b1001) {
+      if (nibbles[6] == 0b0000) {
+        if (nibbles[5] & 0b1000)
+          return make_unique<MulLong>(i);
+        else
+          return make_unique<MulShort>(i);
+      } else if (nibbles[1] == 0b1001) {
+        return make_unique<SingleDataSwap>(i);
+      } else {
+        return make_unique<LoadStore>(i);
+      }
+    } else {
+      return make_unique<DataProcessing>(i);
+    }
+  }
+
+  unique_ptr<Ins> data_processing_0011(u32 i) {
+    Nibbles nibbles(i);
+    switch (nibbles[5]) {
+    case 0b0000:
+    case 0b0100:
+      return make_unique<UndefinedInstruction>(i);
+    case 0b0010:
+    case 0b0110:
+      return make_unique<MovToStatus>(i);
+    default:
+      return make_unique<DataProcessing>(i);
+    }
+  }
+
+  unique_ptr<Ins> load_store_offset_011x(u32 i) {
+    if (i & flag_mask(4))
+      return make_unique<UndefinedInstruction>(i);
+    else
+      return make_unique<LoadStoreOffset>(i);
+  }
+
+  unique_ptr<Ins> load_store_multiple(u32 i) {
+    if (get_cond(i) == 0b1111)
+      return make_unique<UndefinedInstruction>(i);
+    else
+      return make_unique<LoadStoreMultiple>(i);
+  }
+
+  // Maps the 6th nibble of an instruction to a factory function.
+  const std::function<std::unique_ptr<Ins>(u32 ins)> ins_map[] = {
+      data_processing_000x,                   // 0b0000
+      data_processing_000x,                   // 0b0001
+      make_unique<DataProcessing, u32>,       // 0b0010
+      data_processing_0011,                   // 0b0011
+      make_unique<LoadStoreOffset, u32>,      // 0b0100
+      make_unique<LoadStoreOffset, u32>,      // 0b0101
+      load_store_offset_011x,                 // 0b0110
+      load_store_offset_011x,                 // 0b0111
+      load_store_multiple,                    // 0b1000
+      load_store_multiple,                    // 0b1001
+      make_unique<BranchWithLink, u32>,       // 0b1010
+      make_unique<BranchWithLink, u32>,       // 0b1011
+      make_unique<UndefinedInstruction, u32>, // 0b1100 coprocessor instructions
+      make_unique<UndefinedInstruction, u32>, // 0b1101 coprocessor instructions
+      make_unique<UndefinedInstruction, u32>, // 0b1110 coprocessor instructions
+      make_unique<SoftwareInterrupt, u32>,    // 0b1111
   };
 
   struct ArmInstruction {
     Cond cond;
 
-    typedef variant<MulShort, MulLong, SingleDataSwap, LoadStore,
-                    DataProcessing, MovStatusToReg, MovToStatus, BranchExchange,
-                    CountLeadingZeros, UndefinedInstruction, LoadStoreOffset,
-                    LoadStoreMultiple, BranchWithLink, SoftwareInterrupt>
-        InsAlg;
+    unique_ptr<Ins> instruction;
 
-    InsAlg instruction;
+    ArmInstruction(u32 instruction)
+        : instruction(ins_map[(instruction >> 24) & 0b1111](instruction)),
+          cond((Cond)(instruction >> 28)) {}
 
-    ArmInstruction(u32 instruction) : instruction(UndefinedInstruction(-1)) {
-      Nibbles nibbles(instruction);
+    void execute(CpuState &cpu_state) { instruction->execute(cpu_state); }
 
-      cond = (Cond)nibbles[7];
-
-      if (cond == 0b1111) {
-        this->instruction = UndefinedInstruction(instruction);
-        return;
-      }
-
-      u32 masked_opcode = (instruction >> 24) & 0b11001;
-      switch (nibbles[6]) {
-      case 0b0000:
-      case 0b0001: {
-        switch (nibbles[1] & 0b1001) {
-        case 0b0000:
-        case 0b1000:
-          if (masked_opcode == 0b10000) {
-            // misc ins 3-3
-            if (nibbles[1] == 0b0000) {
-              if (nibbles[5] & 0b0010) {
-                this->instruction = MovToStatus(instruction);
-              } else {
-                this->instruction = MovStatusToReg(instruction);
-              }
-            } else {
-              // Enhanced DSP Multiplication - undefined in ARMv4
-              this->instruction = UndefinedInstruction(instruction);
-            }
-          } else {
-            this->instruction = DataProcessing(instruction);
-          }
-          break;
-
-        case 0b0001:
-          if (masked_opcode == 0b10000) {
-            // misc ins 3-3
-            u32 op = nibbles[5] << 4;
-            op |= nibbles[1];
-
-            switch (op) {
-            case 0b00100001:
-              this->instruction = BranchExchange(instruction);
-              break;
-
-            case 0b01100001:
-              this->instruction = CountLeadingZeros(instruction);
-              break;
-
-            case 0b00100011:
-              this->instruction = UndefinedInstruction(instruction);
-              break;
-
-            case 0b00000101:
-            case 0b00100101:
-            case 0b01000101:
-            case 0b01100101:
-              // Enhanced DSP additive - undefined in ARMv4
-              this->instruction = UndefinedInstruction(instruction);
-              break;
-
-            case 0b00100111:
-              // SWBreak - undefined in ARMv4
-              this->instruction = UndefinedInstruction(instruction);
-              break;
-            }
-          } else {
-            this->instruction = DataProcessing(instruction);
-          }
-        case 0b1001:
-          // misc ins 2-2
-          if (nibbles[1] == 0b1001) {
-            // mul / mullong / single swap
-            if (nibbles[6] & 0b1) {
-              this->instruction = SingleDataSwap(instruction);
-            } else {
-              if (nibbles[5] & 0b1000) {
-                this->instruction = MulShort(instruction);
-              } else {
-                this->instruction = MulLong(instruction);
-              }
-            }
-          } else {
-            this->instruction = LoadStore(instruction);
-          }
-          break;
-        }
-        break;
-      }
-
-      case 0b0010:
-      case 0b0011: {
-        u32 opcode = (instruction >> 20) & 0b11011;
-        switch (opcode) {
-        case 0b10000:
-          this->instruction = UndefinedInstruction(instruction);
-          break;
-        case 0b10010:
-          this->instruction = MovToStatus(instruction);
-          break;
-        default:
-          this->instruction = DataProcessing(instruction);
-        }
-        break;
-      }
-
-      case 0b0100:
-      case 0b0101:
-        this->instruction = LoadStoreOffset(instruction);
-        break;
-
-      case 0b0110:
-      case 0b0111:
-        if (nibbles[1] & 1) {
-          this->instruction = UndefinedInstruction(instruction);
-        } else {
-          this->instruction = LoadStoreOffset(instruction);
-        }
-        break;
-
-      case 0b1000:
-      case 0b1001:
-        this->instruction = LoadStoreMultiple(instruction);
-        break;
-
-      case 0b1010:
-      case 0b1011:
-        this->instruction = BranchWithLink(instruction);
-        break;
-
-      // Coprocessor instructions
-      case 0b1100:
-      case 0b1101:
-      case 0b1110:
-        break;
-
-      case 0b1111:
-        this->instruction = SoftwareInterrupt(instruction);
-        break;
-      }
-    }
-
-    void execute(CpuState &cpu_state) {
-      std::visit([&](Ins &ins) { ins.execute(cpu_state); }, instruction);
-    }
+    std::string disassemble() { return instruction->disassemble(); }
   };
 
   void initialize_definition_map() {

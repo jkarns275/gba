@@ -1,3 +1,7 @@
+module;
+#include <format>
+#include <string>
+
 export module arm7tdmi.arm:swi;
 
 import arm7tdmi;
@@ -33,13 +37,17 @@ export {
         : Ins(instruction), swi_number(swi_number) {}
 
     void execute(CpuState &state) override {
+      state.write_register(14, state.read_current_pc() + 4);
       state.write_spsr(state.read_cpsr(), Mode::SVC);
       state.set_mode(Mode::SVC);
-      state.write_register(14, state.read_current_pc() + 4);
       state.clear_flag(CpuState::T_FLAG);
       state.set_flag(CpuState::F_FLAG);
 
       state.write_pc(0x00000008);
+    }
+
+    std::string disassemble() override {
+      return std::format("SWI{} {:x}", cond_to_string(cond), swi_number);
     }
   };
 }

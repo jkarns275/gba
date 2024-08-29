@@ -18,7 +18,10 @@ using std::vector;
 export {
   ;
 
-  // TODO: Merge `Load` and `LoadStoreOffset` probably.
+  // ARM LDRH
+  // ARM LDRSB
+  // ARM LDRSH
+  // ARM STRH
   struct LoadStore : public Ins {
     static inline const vector<const InstructionDefinition *> definitions = {
         new InstructionDefinition(
@@ -140,9 +143,8 @@ export {
       return address;
     }
 
-    static constexpr u32 switch_pair(IntegralType integral_type,
-                                     bool is_signed) {
-      return (u32)integral_type | ((u32)is_signed * 16);
+    static constexpr u32 switch_pair(IntegralType integral_type, bool b) {
+      return (u32)integral_type | ((u32)b * 16);
     }
 
     void load(CpuState &state) {
@@ -168,17 +170,10 @@ export {
         break;
       }
 
-      case switch_pair(WORD, false):
-      case switch_pair(WORD, true):
-        rd = state.read<u32>(address);
-        break;
-
-      // Not implemented since these instructions dont exist in arm7tdmi
-      case switch_pair(LONG, false):
-      case switch_pair(LONG, true):
       // This should not happen - when H and S flags are 0 it is actually a
       // multiply instruction.
       case switch_pair(BYTE, false):
+      default:
         __builtin_unreachable();
       }
 
@@ -214,8 +209,59 @@ export {
       else
         store(state);
     }
+
+    static constexpr u32 switch_pair(bool s, IntegralType integral_type,
+                                     bool b) {
+      return (u32)s | (u32)(b << 1) | ((u32)integral_type << 2);
+    }
+
+    std::string disassemble_operand() {
+      char sign = u ? '+' : '-';
+
+      switch (switch_pair(offset_type, p)) {
+      case switch_pair(REGISTER, false):
+        return std::format("[{}] {}{}", pretty_reg_name(irn), sign,
+                           (u32)operand);
+      case switch_pair(REGISTER, true):
+        return std::format("[{}, {}{}]{}", pretty_reg_name(irn), sign,
+                           pretty_reg_name(operand), w ? "!" : "");
+      case switch_pair(IMMEDIATE, false):
+        return std::format("[{}] #{}{:x}", pretty_reg_name(irn), sign,
+                           (u32)operand);
+      case switch_pair(IMMEDIATE, true):
+        return std::format("[{}, #{}{:x}]{}", pretty_reg_name(irn), sign,
+                           (u32)operand, w ? "!" : "");
+      default:
+        return "<OPERAND NOT SUPPORTED IN ARM7TDMI>";
+      }
+    }
+
+    std::string disassemble() override {
+      std::string name_pre = l ? "LDR" : "STR";
+      std::string name_post;
+      switch (switch_pair(integral_type, s)) {
+      case switch_pair(SHORT, false):
+        name_post = "H";
+        break;
+      case switch_pair(SHORT, true):
+        name_post = "SH";
+        break;
+      case switch_pair(BYTE, true):
+        name_post = "SB";
+        break;
+      default:
+        name_post = "<INVALID>";
+        break;
+      }
+
+      std::string name =
+          std::format("{}{}{}", name_pre, cond_to_string(cond), name_post);
+      return std::format("{} {}, {}", name, pretty_reg_name(ird),
+                         disassemble_operand());
+    }
   };
 
+  // ARM MRS
   struct MovStatusToReg : public Ins {
     static inline const InstructionDefinition *definition =
         new InstructionDefinition(
@@ -231,6 +277,7 @@ export {
 
     void execute(CpuState &state) override {
       u32 rd;
+
       if (r) {
         rd = state.read_spsr();
       } else {
@@ -238,8 +285,15 @@ export {
       }
       state.write_register(ird, rd);
     }
+
+    std::string disassemble() override {
+      std::string psr = r ? "SPSR" : "CPSR";
+      return std::format("MRS{} {}, {}", cond_to_string(cond),
+                         pretty_reg_name(ird), psr);
+    }
   };
 
+  // ARM MSR
   struct MovToStatus : public Ins {
     static inline vector<const InstructionDefinition *> definition = {
         new InstructionDefinition(
@@ -283,10 +337,10 @@ export {
       }
 
       Mode mode = state.get_mode();
-      if (!r && !mode_has_spsr(mode))
+      if (r && !mode_has_spsr(mode))
         return;
 
-      u32 psr = r ? state.read_cpsr() : state.read_spsr();
+      u32 psr = r ? state.read_spsr() : state.read_cpsr();
       u32 mask = 0;
 
       if ((r && mode_is_privileged(mode)) || !r) {
@@ -300,12 +354,44 @@ export {
       psr = (mask & operand) | (~mask & psr);
 
       if (r)
-        state.write_cpsr(psr);
-      else
         state.write_spsr(psr);
+      else
+        state.write_cpsr(psr);
+    }
+
+    std::string disassemble() override {
+      std::string fields;
+
+      if (field_mask & 0b0001)
+        fields += 'c';
+      if (field_mask & 0b0010)
+        fields += 'x';
+      if (field_mask & 0b0100)
+        fields += 's';
+      if (field_mask & 0b1000)
+        fields += 'f';
+
+      std::string operand;
+      if (std::holds_alternative<u8>(this->operand)) {
+        operand = pretty_reg_name(std::get<u8>(this->operand));
+      } else {
+        operand = std::get<RotateOperand>(this->operand).disassemble();
+      }
+
+      std::string psr = r ? "SPSR" : "CPSR";
+      return std::format("MSR{} {}_{}, {}", cond_to_string(cond), psr, fields,
+                         operand);
     }
   };
 
+  // ARM LDR
+  // ARM LDRB
+  // ARM LDRBT
+  // ARM LDRT
+  // ARM STR
+  // ARM STRB
+  // ARM STRBT
+  // ARM STRT
   struct LoadStoreOffset : public Ins {
     static inline const vector<const InstructionDefinition *> definitions = {
         new InstructionDefinition(
@@ -371,16 +457,6 @@ export {
       i32 sign = add_offset ? 1 : -1;
       u32 addr = rn;
 
-      if (irn == 15) {
-        // Definition of PC is slightly different in THUMB mode
-        if (state.get_flag(CpuState::T_FLAG)) {
-          addr &= 0xFFFFFFFC;
-          addr += 4;
-        } else {
-          addr += 8;
-        }
-      }
-
       i32 offset =
           register_offset
               ? std::get<ImmShiftOperand>(operand).evaluate(state).value
@@ -402,7 +478,8 @@ export {
         break;
       }
 
-      state.write_register(irn, rn);
+      if (w)
+        state.write_register(irn, rn);
 
       return addr;
     }
@@ -428,6 +505,7 @@ export {
       } else {
         switch (data_type) {
         case BYTE:
+          spdlog::info("r{} -> {:#04x} -> {}", ird, addr, state.read<u8>(addr));
           state.write<u8>(addr, rd);
           break;
         case WORD:
@@ -438,8 +516,50 @@ export {
 
       state.write_register(ird, rd);
     }
+
+    std::string disassemble_addressing_mode() {
+      std::string operand;
+
+      if (register_offset) {
+        operand = std::get<ImmShiftOperand>(this->operand).disassemble();
+      } else {
+        char sign = add_offset ? '+' : '-';
+        operand = std::format("#{}{:x}", sign, std::get<u32>(this->operand));
+      }
+
+      if (pre_indexed_or_offset) {
+        return std::format("[{}, {}]{}", pretty_reg_name(irn), operand,
+                           w ? "!" : "");
+      } else {
+        return std::format("[{}], {}", pretty_reg_name(irn), operand);
+      }
+    }
+
+    std::string disassemble() override {
+      std::string name_pre, name_post;
+
+      if (load)
+        name_pre = "LDR";
+      else
+        name_pre = "STR";
+
+      if (data_type == BYTE)
+        name_post.push_back('B');
+
+      if (!pre_indexed_or_offset && w)
+        name_post.push_back('T');
+
+      return std::format("{}{}{} {}, {}", name_pre, cond_to_string(cond),
+                         name_post, pretty_reg_name(ird),
+                         disassemble_addressing_mode());
+    }
   };
 
+  // ARM LDM (1)
+  // ARM LDM (2)
+  // ARM LDM (3)
+  // ARM STM (1)
+  // ARM STM (2)
   struct LoadStoreMultiple : public Ins {
     static inline const InstructionDefinition *definition =
         new InstructionDefinition({new CondPiece(), new ValuePiece(0b100, 3),
@@ -486,6 +606,8 @@ export {
     void execute(CpuState &state) override {
       auto [address, rn_new] = get_address(state);
 
+      spdlog::info("S = {}; pc in reg list = {}", s,
+                   bool(register_list & MASK_PC));
       if (l) {
         Mode mode =
             s && !(register_list & MASK_PC) ? Mode::USR : state.get_mode();
@@ -517,6 +639,48 @@ export {
       }
 
       state.write_register(irn, rn_new);
+    }
+
+    static constexpr u32 switch_pair(bool a, bool b) {
+      return (u32)a | ((u32)b << 1);
+    }
+
+    std::string disassemble() override {
+      std::string name_pre = l ? "LDM" : "STM";
+      std::string name_post;
+      switch (switch_pair(p, u)) {
+      case switch_pair(false, false):
+        name_post = "DA";
+        break;
+      case switch_pair(false, true):
+        name_post = "IA";
+        break;
+
+      case switch_pair(true, false):
+        name_post = "DB";
+        break;
+
+      case switch_pair(true, true):
+        name_post = "IB";
+        break;
+      }
+
+      // Use usermode when S is set for STM instructions. Use usermode when S is
+      // set and pc is not in the register list for STM instructions
+      std::string usermode =
+          s && (!l || (l && !((1 << 15) & register_list))) ? "^" : "";
+
+      std::string registers = "{ ";
+      for (int i = 0; i < 16; i++) {
+        if ((1 << i) & register_list)
+          registers += std::format("{}, ", pretty_reg_name(i));
+      }
+
+      registers.erase(registers.end() - 2, registers.end());
+      registers += " }";
+
+      return std::format("{}{}{} {}, {}{}", name_pre, cond_to_string(cond),
+                         name_post, pretty_reg_name(irn), registers, usermode);
     }
   };
 }

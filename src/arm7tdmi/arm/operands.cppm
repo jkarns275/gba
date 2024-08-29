@@ -1,6 +1,6 @@
 module;
-#include <algorithm>
-#include <iostream>
+#include <format>
+#include <string>
 
 export module arm7tdmi.arm:operands;
 
@@ -12,6 +12,13 @@ export {
 
   enum BitShift : u8 { LEFT = 0b00, LRIGHT = 0b01, ARIGHT = 0b10, ROR = 0b11 };
 
+  constexpr std::string BITSHIFT_TO_STRING[] = {"LSL", "LSR", "ASR", "ROR",
+                                                "RRX"};
+
+  std::string bitshift_to_string(BitShift shift) {
+    return BITSHIFT_TO_STRING[(int)shift];
+  }
+
   struct ShifterOperandValue {
     u32 value;
     u32 carry;
@@ -19,6 +26,7 @@ export {
 
   struct ShifterOperand {
     virtual ShifterOperandValue evaluate(CpuState &state) = 0;
+    virtual std::string disassemble() = 0;
   };
 
   struct RotateOperand : public ShifterOperand {
@@ -41,6 +49,10 @@ export {
           rotate ? bool(shifter & MASK) : state.get_flag(CpuState::C_FLAG);
       return {shifter, carry};
     }
+
+    std::string disassemble() override {
+      return std::format("#{:x}", ror<u32>(imm, rotate * 2));
+    }
   };
 
   struct ThumbOperand : public ShifterOperand {
@@ -51,6 +63,8 @@ export {
     ShifterOperandValue evaluate(CpuState &state) override {
       return {state.read_register(irm), 0};
     }
+
+    std::string disassemble() override { return pretty_reg_name(irm); }
   };
 
   struct ImmShiftOperand : public ShifterOperand {
@@ -101,34 +115,40 @@ export {
         carry = bool(reg & MASK);
 
         switch (shift_type) {
-        case LEFT: {
+        case LEFT:
           value = reg;
           carry = state.get_flag(CpuState::C_FLAG);
           break;
-        }
-        case LRIGHT: {
+        case LRIGHT:
           value = 0;
           carry = bool(MASK & reg);
           break;
-        }
-
-        case ARIGHT: {
+        case ARIGHT:
           if (reg & MASK)
             value = -1;
           else
             value = 0;
-
           break;
-        }
-        case ROR: {
+        case ROR:
           value = (bool(state.get_flag(CpuState::C_FLAG)) << 31) | (reg >> 1);
           carry = reg & 1;
           break;
         }
-        }
       }
 
       return {value, carry};
+    }
+
+    std::string disassemble() override {
+      std::string shift;
+      if (shift_type == ROR && shift_by == 0) {
+        shift = "RRX";
+      } else {
+        shift =
+            std::format("{} #{:x}", bitshift_to_string(shift_type), shift_by);
+      }
+
+      return std::format("{}, {}", pretty_reg_name(irm), shift);
     }
   };
 
@@ -222,6 +242,11 @@ export {
       }
 
       return {value, bool(carry)};
+    }
+
+    std::string disassemble() override {
+      return std::format("{}, {} {}", pretty_reg_name(irm),
+                         bitshift_to_string(shift_type), pretty_reg_name(irs));
     }
   };
 }

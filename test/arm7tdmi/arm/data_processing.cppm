@@ -19,8 +19,6 @@ using std::string;
 using std::unordered_map;
 using std::vector;
 
-using Opcode = DataProcessing::Opcode;
-
 void set_imm_rotate(unordered_map<string, u32> &values, u32 imm, u32 rotate) {
   values["imm"] = imm;
   values["rotate"] = rotate;

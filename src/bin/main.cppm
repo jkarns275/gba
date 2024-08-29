@@ -11,91 +11,71 @@ module;
 #include <unordered_map>
 #include <vector>
 
+#include <spdlog/spdlog.h>
+
 export module main;
 
 import types;
 import bitutil;
+import arm7tdmi;
 import arm7tdmi.instruction;
 import arm7tdmi.arm;
+import arm7tdmi.thumb;
 
 using std::make_unique;
+using std::unique_ptr;
 
 int main() {
   // initialize_definition_map();
-  //
-  // ArmCpuState state;
-  // const std::vector<const InstructionDefinition *> &definitions =
-  // DataProcessing::definitions; InstructionDefinition *dd = new
-  // InstructionDefinition({
-  //   new CondPiece(), new Zeros(3), new IntegralPiece(4, "opcode", 0b0100,
-  //   0b10000), new BoolPiece("S"), new RegPiece("Rn"), new RegPiece("Rd"), new
-  //   IntegralPiece(5, "shift amount"), new IntegralPiece(2, "shift type"), new
-  //   Zeros(1), new RegPiece("Rm")
-  // });
 
-  // const InstructionDefinition &def = *dd;
-  // auto it = def.begin();
-  // std::optional<u32> x;
+  std::unique_ptr<GBAMemory> memory =
+      std::make_unique<GBAMemory>("/Users/josh/GBA Roms/gba.bios");
 
-  // std::unordered_map<std::string, u32> ttt = {
-  //   {"shift amount", 2},
-  //   {"shift type", BitShift::LEFT},
-  //   {"S", 1},
-  //   {"Rn", 0},
-  //   {"Rd", 1},
-  //   {"Rm", 2},
-  //   {"opcode", DataProcessing::Opcode::ADD},
-  //   {"cond", 0b1111}
-  // };
-  // u32 ins = def.build(ttt);
-  //
-  // std::cout << std::format("{:>{}b}\n", ins, 32);
-  //
-  // ArmCpuState base_input_state;
-  // CpuStateOverride input_state(base_input_state, { RegOverride{0, 16},
-  // RegOverride(2, 2) });
+  CpuState state(*memory);
 
-  // DataProcessing dp(ins);
+  int nex = 0;
+  for (;;) {
+    u32 pc = state.read_current_pc();
 
-  // input_state.print_registers();
-  // std::cout << "--------------------\n";
-  // dp.execute(input_state);
-  // std::cout << "--------------------\n";
-  // input_state.print_registers();
+    unique_ptr<Ins> instruction;
+    if (state.is_thumb_mode()) {
+      u16 ins = memory->read<u16>(pc, Mode::SVC);
+      spdlog::info("        :  {:#018b}", ins);
 
-  initialize_definition_map();
-  for (auto &entry : InstructionDefinition::DEFINITION_MAP) {
-    std::cout << "YO\n";
-    for (int i = 0; i < entry.second.size(); i++) {
-      std::cout << "Instruction " << entry.first << " variant " << i << "\n";
-      entry.second[i]->print_definition();
+      instruction = std::move(ThumbInstruction(ins).instruction);
+
+      spdlog::info("{:04x}:  {:04x}        {}", pc, ins,
+                   instruction->disassemble());
+    } else {
+      u32 word = memory->read<u32>(pc, Mode::SVC);
+      spdlog::info("        :  {:#034b}", word);
+
+      ArmInstruction ins(word);
+      instruction = std::move(ins.instruction);
+
+      spdlog::info("{:08x}:  {:08x}        {}", pc, word,
+                   instruction->disassemble());
+    }
+
+    if (!instruction)
+      break;
+
+    getchar();
+    if (state.is_thumb_mode() || state.evaluate_cond(instruction->cond)) {
+      instruction->execute(state);
+      state.print_registers();
+      nex += 1;
+    }
+
+    if (state.read_current_pc() == pc) {
+      if (state.is_thumb_mode()) {
+        state.write_register(15, state.read_current_pc() + 2);
+      } else {
+        state.write_register(15, state.read_current_pc() + 4);
+      }
     }
   }
 
+  spdlog::info("Executed {:#08x} instructions", nex);
   return 0;
-
-  // while ((x = it.get())) {
-  //   auto p = def.validate(x.value());
-  //   if (p.size() == def.pieces.size()) {
-  //     for (int i = p.size() - 1; i >= 0; i--) {
-  //       DecodedPiece &piece = p[i];
-  //       std::cout << piece.name << ": " << std::format("{:>{}b}",
-  //       piece.piece, piece.length) << "/" << piece.length << " ";
-  //     }
-  //     std::cout << std::endl;
-  //   }
-  //   DataProcessing dp(x.value());
-  //   dp.execute(state);
-  //   std::cout << std::format("Instruction: {:>32b}", x.value()) << std::endl;
-  //   for (int i = 0; i < 16; i++) {
-  //     if (i % 4 == 0 && i)
-  //       std::cout << "\n";
-  //     std::cout << std::format("r{:<2}: {:<8x}", i, state.get_register(i)) <<
-  //     "  ";
-  //   }
-  //   std::cout << "\n";
-  //   std::cout << "\n";
-  //
-  //   it.step();
-  // }
 }

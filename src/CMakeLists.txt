@@ -18,4 +18,5 @@ target_sources(main
     FILE_SET cxx_modules TYPE CXX_MODULES FILES
       bin/main.cppm
 )
+target_link_libraries(main PRIVATE spdlog::spdlog)
 target_link_libraries(main PUBLIC arm7tdmi_lib)

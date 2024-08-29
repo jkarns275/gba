@@ -1,5 +1,6 @@
 module;
-#include <iostream>
+#include <format>
+#include <string>
 
 export module arm7tdmi.arm:mul;
 
@@ -50,6 +51,13 @@ export {
         if (value == 0)
           state.set_flag(CpuState::Z_FLAG);
       }
+    }
+
+    std::string disassemble() override {
+      return std::format("{}{}{} {}, {}, {}", a ? "MLA" : "MUL",
+                         cond_to_string(cond), s ? "S" : "",
+                         pretty_reg_name(ird), pretty_reg_name(irm),
+                         pretty_reg_name(irs));
     }
   };
 
@@ -117,6 +125,34 @@ export {
 
       state.write_register(ird_msw, rd_hi);
       state.write_register(ird_lsw, rd_lo);
+    }
+
+    static constexpr u32 switch_case(bool _0, bool _1) {
+      return ((u32)_0) | ((u32)_1 << 1);
+    }
+
+    std::string disassemble() override {
+      std::string name;
+
+      switch (switch_case(u, a)) {
+      case switch_case(false, false):
+        name = "UMULL";
+        break;
+      case switch_case(false, true):
+        name = "UMULAL";
+        break;
+      case switch_case(true, false):
+        name = "SMULL";
+        break;
+      case switch_case(true, true):
+        name = "SMULAL";
+        break;
+      }
+
+      return std::format("{}{}{} {}, {}, {}, {}", name, cond_to_string(cond),
+                         s ? "S" : "", pretty_reg_name(ird_lsw),
+                         pretty_reg_name(ird_msw), pretty_reg_name(irm),
+                         pretty_reg_name(irs));
     }
   };
 }

@@ -30,12 +30,11 @@ struct SoftwareInterruptTest : public ArmInstructionTest<SoftwareInterrupt> {
     ArmInstructionTest<SoftwareInterrupt>::prepare_state(state);
 
     state.set_flag(flags);
-
     value_map["swi_number"] = number;
   }
 
   void check_requirements(CpuState &state) override {
-    REQUIRE(state.read_spsr(Mode::SVC) == flags);
+    REQUIRE((state.read_spsr(Mode::SVC) & ~0x1F) == flags);
     REQUIRE(state.read_register(14, Mode::SVC) == 4);
     REQUIRE(state.get_mode() == Mode::SVC);
     REQUIRE(!(state.read_cpsr() & CpuState::T_FLAG));

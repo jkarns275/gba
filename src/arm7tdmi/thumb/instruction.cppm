@@ -1,6 +1,11 @@
 module;
-#include <assert.h>
+#include <format>
+#include <memory>
+#include <string>
 #include <variant>
+
+#include <assert.h>
+#include <spdlog/spdlog.h>
 
 export module arm7tdmi.thumb;
 
@@ -8,9 +13,9 @@ import arm7tdmi;
 import arm7tdmi.arm;
 import arm7tdmi.instruction;
 
+using std::make_unique;
+using std::unique_ptr;
 using std::variant;
-
-export typedef DataProcessing::Opcode Opcode;
 
 constexpr u8 thumb_reg(u16 ins, u8 start) { return (ins >> start) & 0x7; }
 
@@ -267,6 +272,9 @@ export {
   // LDR (1)
   // STR (1)
   // 0b0110____________
+  // LDRB (1)
+  // STRB (1)
+  // 0b0111____________
   struct TLoadStoreImm5 : public LoadStoreOffset {
     static inline const InstructionDefinition *definition =
         new TInstructionDefinition({new TValuePiece(0b011, 3),
@@ -274,29 +282,20 @@ export {
                                     new TIntegralPiece(5, "offset"),
                                     new TRegPiece("Rn"), new TRegPiece("Rd")});
 
+    static constexpr u16 BYTE_MASK = flag_mask(12);
+
     TLoadStoreImm5(u16 instruction)
         : LoadStoreOffset(instruction, false, true, true, false,
                           instruction & LOAD_MASK, thumb_reg(instruction, 3),
-                          thumb_reg(instruction, 0), LoadStoreOffset::WORD,
-                          ((instruction >> 6) & 0x1F) * 4) {}
-  };
+                          thumb_reg(instruction, 0), LoadStoreOffset::WORD, 0) {
+      data_type = instruction & BYTE_MASK ? LoadStoreOffset::BYTE
+                                          : LoadStoreOffset::WORD;
 
-  // LDRB (1)
-  // STRB (1)
-  // 0b0111____________
-  // TODO: Combine w/ TLoadStoreImm5
-  struct TLoadStoreByteImm5 : public LoadStoreOffset {
-    static inline const InstructionDefinition *definition =
-        new TInstructionDefinition({new TValuePiece(0b011, 3),
-                                    new TBoolPiece("B"), new TBoolPiece("L"),
-                                    new TIntegralPiece(5, "offset"),
-                                    new TRegPiece("Rn"), new TRegPiece("Rd")});
-
-    TLoadStoreByteImm5(u16 instruction)
-        : LoadStoreOffset(instruction, false, true, true, false,
-                          instruction & LOAD_MASK, thumb_reg(instruction, 3),
-                          thumb_reg(instruction, 0), LoadStoreOffset::BYTE,
-                          (instruction >> 6) & 0x1F) {}
+      if (data_type == LoadStoreOffset::BYTE)
+        operand = (instruction >> 6) & 0x1F;
+      else
+        operand = ((instruction >> 6) & 0x1F) * 4;
+    }
   };
 
   // LDRH (1)
@@ -419,6 +418,13 @@ export {
   // 0b11101__________1
   struct UndefinedThumbInstruction : public Ins {
     UndefinedThumbInstruction(u16 instruction) : Ins(instruction) {}
+
+    void execute(CpuState &state) {}
+
+    std::string disassemble() override {
+      return std::format("{:#4x} <UNSUPPORTED THUMB INSTRUCTION>",
+                         nibbles.word);
+    }
   };
 
   // SWI
@@ -480,21 +486,132 @@ export {
     }
   };
 
-  struct ThumbInstruction {
-    typedef variant<
-        TShiftImm, TAddSubReg, TAddSubImm, TDataProcessingImm, TDataProcessing,
-        TMul, TDataProcessingHiReg, TBranchExchange, TLiteralPoolLoad,
-        TLoadStoreReg, TLoadSigned, TLoadStoreImm5, TLoadStoreByteImm5,
-        TLoadStoreShort, TLoadStoreImm8, TAddWithPC, TAddToSP, TAddWithSP,
-        TPushPopRegisterList, TLoadStoreMultiple, TConditionalBranch,
-        UndefinedThumbInstruction, TSoftwareInterrupt, TBranchWithLink>
-        InsAlg;
+  unique_ptr<Ins> block_1011(u16 instruction) {
+    switch ((instruction >> 8) & 0xF) {
+    case 0b0000: // adjust sp
+      return make_unique<TAddToSP>(instruction);
+    case 0b0100:
+    case 0b0101:
+    case 0b1100:
+    case 0b1101: // push pop rl
+      return make_unique<TPushPopRegisterList>(instruction);
 
-    InsAlg instruction;
-
-    ThumbInstruction(u32 instruction)
-        : instruction(UndefinedThumbInstruction(-1)) {
-      Nibbles nibbles(instruction);
+    case 0b1110: // sw break / not implemented
+      return make_unique<UndefinedThumbInstruction>(instruction);
     }
+  }
+
+  unique_ptr<Ins> block_010001(u16 instruction) {
+    switch (instruction >> 8) {
+    case 0b01000100:
+    case 0b01000101:
+    case 0b01000110:
+      return make_unique<TDataProcessingHiReg>(instruction);
+    case 0b01000111:
+      return make_unique<TBranchExchange>(instruction);
+    default:
+      assert(false);
+      return unique_ptr<Ins>();
+    }
+  }
+
+  // clang-format off
+  const std::function<unique_ptr<Ins>(u16)> thumb_ins_map[64] = {
+      // 0b000000 - 0b000101 shift by imm
+      make_unique<TShiftImm, u16>,
+      make_unique<TShiftImm, u16>,
+      make_unique<TShiftImm, u16>,
+      make_unique<TShiftImm, u16>,
+      make_unique<TShiftImm, u16>,
+      make_unique<TShiftImm, u16>,
+      // 0b000110 add sub reg
+      make_unique<TAddSubReg, u16>,
+      // 0b000111
+      make_unique<TAddSubImm, u16>,
+      // 0b001000 - 0b001111
+      make_unique<TDataProcessingImm, u16>,
+      make_unique<TDataProcessingImm, u16>,
+      make_unique<TDataProcessingImm, u16>,
+      make_unique<TDataProcessingImm, u16>,
+      make_unique<TDataProcessingImm, u16>,
+      make_unique<TDataProcessingImm, u16>,
+      make_unique<TDataProcessingImm, u16>,
+      make_unique<TDataProcessingImm, u16>,
+      // 0b010000
+      make_unique<TDataProcessing, u16>,
+      // 0b010001
+      block_010001,
+      // 0b010010 - 0b010011 load from literal pool
+      make_unique<TLiteralPoolLoad, u16>,
+      make_unique<TLiteralPoolLoad, u16>,
+      // 0b010100 - 0b010111 load store reg offset
+      make_unique<TLoadStoreReg, u16>,
+      make_unique<TLoadStoreReg, u16>,
+      make_unique<TLoadStoreReg, u16>,
+      make_unique<TLoadStoreReg, u16>,
+      // 0b011000 - 0b011111
+      make_unique<TLoadStoreImm5, u16>,
+      make_unique<TLoadStoreImm5, u16>,
+      make_unique<TLoadStoreImm5, u16>,
+      make_unique<TLoadStoreImm5, u16>,
+      make_unique<TLoadStoreImm5, u16>,
+      make_unique<TLoadStoreImm5, u16>,
+      make_unique<TLoadStoreImm5, u16>,
+      make_unique<TLoadStoreImm5, u16>,
+      // 0b100000 - 0b100011
+      make_unique<TLoadStoreShort, u16>,
+      make_unique<TLoadStoreShort, u16>,
+      make_unique<TLoadStoreShort, u16>,
+      make_unique<TLoadStoreShort, u16>,
+      // 0b100100 - 0b100111
+      make_unique<TLoadStoreImm8, u16>,
+      make_unique<TLoadStoreImm8, u16>,
+      make_unique<TLoadStoreImm8, u16>,
+      make_unique<TLoadStoreImm8, u16>,
+      // 0b101000 - 0b101001
+      make_unique<TAddWithPC, u16>,
+      make_unique<TAddWithPC, u16>,
+      // 0b101010 - 0b101011
+      make_unique<TAddWithSP, u16>,
+      make_unique<TAddWithSP, u16>,
+      // 0b101100 - 0b101111 misc
+      block_1011,
+      block_1011,
+      block_1011,
+      block_1011,
+      // 0b110100 - 0b110111 load store multiple
+      make_unique<TLoadStoreMultiple, u16>,
+      make_unique<TLoadStoreMultiple, u16>,
+      make_unique<TLoadStoreMultiple, u16>,
+      make_unique<TLoadStoreMultiple, u16>,
+      // 0b110100 - 0b110111 conditional branch
+      make_unique<TConditionalBranch, u16>,
+      make_unique<TConditionalBranch, u16>,
+      make_unique<TConditionalBranch, u16>,
+      make_unique<TConditionalBranch, u16>,
+      // 0b11100x unconditional branch
+      make_unique<TBranchWithLink, u16>,
+      make_unique<TBranchWithLink, u16>,
+      // 0b1101x BLX suffix
+      // node that when these instructions end with 1, they are technically
+      // undefined but that doesn't really matter since GBA machine code
+      // will never contain that
+      make_unique<TBranchWithLink, u16>,
+      make_unique<TBranchWithLink, u16>,
+      // 0b11110x bl/blx prefix
+      make_unique<TBranchWithLink, u16>,
+      make_unique<TBranchWithLink, u16>,
+      // 0b11111x bl
+      make_unique<TBranchWithLink, u16>,
+      make_unique<TBranchWithLink, u16>,
+  };
+
+  // clang-format on
+
+  struct ThumbInstruction {
+    unique_ptr<Ins> instruction;
+
+    ThumbInstruction(u16 instruction)
+        : instruction(thumb_ins_map[instruction >> 10](instruction)) {}
   };
 }

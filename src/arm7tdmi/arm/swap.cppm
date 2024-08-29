@@ -1,5 +1,7 @@
 module;
-#include <spdlog/spdlog.h>
+#include <format>
+#include <string>
+
 export module arm7tdmi.arm:swap;
 
 import arm7tdmi;
@@ -37,6 +39,12 @@ export {
       }
 
       state.write_register(ird, rd);
+    }
+
+    std::string disassemble() override {
+      return std::format("SWP{}{} {}, {}, [{}]", cond_to_string(cond),
+                         b ? "B" : "", pretty_reg_name(ird),
+                         pretty_reg_name(irm), pretty_reg_name(irn));
     }
   };
 }

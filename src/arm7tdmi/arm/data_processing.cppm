@@ -1,7 +1,10 @@
 module;
-#include <iostream>
+#include <format>
+#include <string>
 #include <variant>
 #include <vector>
+
+#include <spdlog/spdlog.h>
 
 export module arm7tdmi.arm:data_processing;
 
@@ -37,7 +40,50 @@ export {
       return {result, carry, overflow};
     }
   };
+  enum Opcode : u8 {
+    AND = 0b0000,
+    EOR = 0b0001,
+    SUB = 0b0010,
+    RSB = 0b0011,
+    ADD = 0b0100,
+    ADC = 0b0101,
+    SBC = 0b0110,
+    RSC = 0b0111,
+    TST = 0b1000,
+    TEQ = 0b1001,
+    CMP = 0b1010,
+    CMN = 0b1011,
+    ORR = 0b1100,
+    MOV = 0b1101,
+    BIC = 0b1110,
+    MVN = 0b1111,
+  };
 
+  constexpr std::string OPCODE_TO_STRING[] = {
+      "AND", "EOR", "SUB", "RSB", "ADD", "ADC", "SBC", "RSC",
+      "TST", "TEQ", "CMP", "CMN", "ORR", "MOV", "BIC", "MVN",
+  };
+
+  std::string opcode_to_string(Opcode opcode) {
+    return OPCODE_TO_STRING[(int)opcode];
+  }
+
+  // ARM ADC
+  // ARM ADD
+  // ARM AND
+  // ARM BIC
+  // ARM CMN
+  // ARM CMP
+  // ARM EOR
+  // ARM MLA
+  // ARM MOV
+  // ARM MVN
+  // ARM ORR
+  // ARM RSB
+  // ARM RSC
+  // ARM SBC
+  // ARM TEQ
+  // ARM TST
   struct DataProcessing : public Ins {
     static inline const vector<const InstructionDefinition *> definitions = {
         new InstructionDefinition(
@@ -64,6 +110,8 @@ export {
     static inline constexpr u32 V_FLAG = flag_mask(28);
     static inline constexpr u32 S_FLAG = flag_mask(20);
 
+    // TODO: Probably make this class templated instead of doing whatever this
+    // is.
     typedef variant<ImmShiftOperand, RegShiftOperand, RotateOperand,
                     ThumbOperand>
         Operand;
@@ -84,24 +132,7 @@ export {
       }
     }
 
-    enum Opcode : u8 {
-      AND = 0b0000,
-      EOR = 0b0001,
-      SUB = 0b0010,
-      RSB = 0b0011,
-      ADD = 0b0100,
-      ADC = 0b0101,
-      SBC = 0b0110,
-      RSC = 0b0111,
-      TST = 0b1000,
-      TEQ = 0b1001,
-      CMP = 0b1010,
-      CMN = 0b1011,
-      ORR = 0b1100,
-      MOV = 0b1101,
-      BIC = 0b1110,
-      MVN = 0b1111,
-    } opcode;
+    Opcode opcode;
 
     bool s;
     u8 irn, ird;
@@ -266,6 +297,26 @@ export {
         }
 
         state.write_cpsr(cpsr);
+      }
+    }
+
+    std::string disassemble() override {
+      std::string operand_str = std::visit(
+          [](ShifterOperand &op) { return op.disassemble(); }, this->operand);
+
+      switch (opcode) {
+      case CMN:
+      case CMP:
+      case TEQ:
+      case TST:
+        return std::format("{}{} {}, {}", opcode_to_string(opcode),
+                           cond_to_string(cond), pretty_reg_name(irn),
+                           operand_str);
+      default:
+        return std::format("{}{}{} {}, {}, {}", opcode_to_string(opcode),
+                           cond_to_string(cond), s ? "S" : "",
+                           pretty_reg_name(ird), pretty_reg_name(irn),
+                           operand_str);
       }
     }
   };

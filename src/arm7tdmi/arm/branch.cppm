@@ -1,6 +1,7 @@
 module;
 #include <iostream>
 #include <spdlog/spdlog.h>
+#include <string>
 
 export module arm7tdmi.arm:branch;
 
@@ -10,6 +11,8 @@ import arm7tdmi.instruction;
 export {
   ;
 
+  // ARM BLX (2)
+  // ARM BX
   struct BranchExchange : public Ins {
     static inline const InstructionDefinition *definition =
         new InstructionDefinition({new CondPiece(),
@@ -46,8 +49,21 @@ export {
       else
         state.clear_flag(CpuState::T_FLAG);
     }
+
+    std::string disassemble() override {
+      std::string ins;
+      if (set_lr)
+        ins = "BLX";
+      else
+        ins = "BX";
+      return std::format("{}{} {}", ins, cond_to_string(cond),
+                         pretty_reg_name(irm));
+    }
   };
 
+  // ARM B
+  // ARM BL
+  // ARM BLX (1)
   struct BranchWithLink : public Ins {
 
     static inline const InstructionDefinition *definition =
@@ -96,6 +112,16 @@ export {
 
       if (exchange)
         state.set_flag(CpuState::T_FLAG);
+    }
+
+    std::string disassemble() override {
+      if (cond == NV) {
+        return std::format("BLX {:x}", offset);
+      } else if (l) {
+        return std::format("BL{} {:x}", cond_to_string(cond), offset);
+      } else {
+        return std::format("B{} {:x}", cond_to_string(cond), offset);
+      }
     }
   };
 }

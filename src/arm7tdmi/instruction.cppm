@@ -23,11 +23,18 @@ export {
 
   struct Ins {
     Nibbles nibbles;
+    Cond cond;
 
-    Ins(u32 instruction) : nibbles(instruction) {}
+    Ins(u32 instruction)
+        : nibbles(instruction), cond((Cond)(instruction >> 28)) {}
+    virtual ~Ins() {}
 
-    virtual void execute(CpuState &cpu_state) {}
+    virtual void execute(CpuState &cpu_state) = 0;
+    virtual string disassemble() { return "<UNIMPLEMENTED DISASSEMBLY>"; }
   };
+
+  template <class T>
+  concept IsIns = std::is_base_of<Ins, T>::value;
 
   struct biterator {
     u32 min;
@@ -338,11 +345,29 @@ export {
       std::cout << "+\n";
 
       for (int i = 0; i < pieces.size(); i++) {
-        std::cout << std::format(
-            "| {:^{}} ", std::format("{}/{}", names[i], pieces[i]->nbits),
-            sizes[i]);
+        if (names[i].size() == 0)
+          std::cout << std::format(
+              "| {:^{}} ", std::format("{}/{}", names[i], pieces[i]->nbits),
+              sizes[i]);
+        else
+          std::cout << std::format("| {:^{}} ", "", sizes[i]);
       }
       std::cout << "|\n";
+
+      std::cout << '|';
+      for (int i = 0; i < pieces.size(); i++) {
+        if (names[i].size()) {
+          std::cout << std::format(
+              " {:^{}} ", std::format("{}/{}", names[i], pieces[i]->nbits),
+              sizes[i]);
+        } else {
+          for (int j = 0; j < sizes[i] + 2; j++)
+            std::cout << '-';
+        }
+        std::cout << '|';
+      }
+
+      std::cout << '\n';
 
       for (int i = 0; i < pieces.size(); i++) {
         string bits;
@@ -359,6 +384,14 @@ export {
         std::cout << std::format("| {:^{}} ", bits, sizes[i]);
       }
       std::cout << "|\n";
+
+      std::cout << "+";
+      for (int i = 0; i < pieces.size(); i++) {
+        for (int j = 0; j < sizes[i] + 3 - (i == pieces.size() - 1); j++) {
+          std::cout << '-';
+        }
+      }
+      std::cout << "+\n";
     }
 
     vector<DecodedPiece> validate(u32 instruction) const {

@@ -5,6 +5,8 @@ module;
 #include <variant>
 #include <vector>
 
+#include <spdlog/spdlog.h>
+
 export module arm7tdmi:cpu_state;
 
 import bitutil;
@@ -40,6 +42,45 @@ export {
     NV = 0b1111,
   };
 
+  constexpr string COND_TO_STRING[] = {
+      "EQ",
+      "NE",
+      "CSHS"
+      "CCLO"
+      "MI",
+      "PL",
+      "VS",
+      "VC",
+      "HI",
+      "LS",
+      "GE",
+      "LT",
+      "GT",
+      "LE",
+      "AL",
+      "NV",
+  };
+
+  std::string cond_to_string(Cond cond) {
+    if (cond == AL)
+      return "";
+    else
+      return COND_TO_STRING[(int)cond];
+  }
+
+  std::string pretty_reg_name(u8 reg) {
+    switch (reg) {
+    case 13:
+      return "SP";
+    case 14:
+      return "LR";
+    case 15:
+      return "PC";
+    default:
+      return std::format("R{}", reg);
+    }
+  }
+
   struct CpuState {
     static constexpr u32 N_FLAG = flag_mask(31);
     static constexpr u32 Z_FLAG = flag_mask(30);
@@ -70,9 +111,10 @@ export {
     u32 reg_bank_irq[2] = {};
     u32 reg_bank_und[2] = {};
 
-    u32 cpsr = 0;
+    u32 cpsr = (u32)Mode::SYS;
 
-    u32 spsr_fiq = 0, spsr_svc = 0, spsr_abt = 0, spsr_irq = 0, spsr_und = 0;
+    u32 spsr_fiq = Mode::FIQ, spsr_svc = Mode::SVC, spsr_abt = Mode::ABT,
+        spsr_irq = Mode::IRQ, spsr_und = Mode::UND;
 
     Memory &memory;
 
@@ -80,7 +122,12 @@ export {
 
     bool is_thumb_mode() { return cpsr & CpuState::T_FLAG; }
 
+    void cycles(u32 n) { cycle_count += n; }
+    void reset_cycles() { cycle_count = 0; }
+
   private:
+    u32 cycle_count = 0;
+
     u32 &get_spsr(Mode mode) {
       assert(mode != SYS);
       assert(mode != USR);
@@ -104,7 +151,6 @@ export {
 
     u32 &get_register(u32 index, Mode mode) {
       assert(index < 16);
-      assert(mode != IRQ);
 
       // Modes other than usr and fiq all have registers 13 and 14 banked.
       // This will point to one of those register banks, mode permitting.
@@ -219,14 +265,39 @@ export {
     void write_pc(u32 value) { write_register(INDEX_PC, value); }
 
     void print_registers() {
+      std::stringstream stream;
       for (int i = 0; i < 16; i++) {
-        if (i % 4 == 0 && i)
-          std::cout << "\n";
+        if (i % 4 == 0 && i) {
+          spdlog::info(stream.str());
+          stream.str("");
+          stream.clear();
+        }
         u32 value = read_register(i);
-        std::cout << std::format("r{:<2} : 0x{:<8x}", i, value) << "  ";
+        if (i == 15)
+          value = read_current_pc();
+        stream << std::format("{:>4}: 0x{:08x}", pretty_reg_name(i), value)
+               << "  ";
       }
-      std::cout << "\n";
-      std::cout << std::format("cpsr: 0x{:<8x}\n", cpsr);
+
+      spdlog::info(stream.str());
+      stream.str("");
+      stream.clear();
+
+      const string flag_names = "NZCVQIFT";
+      const u32 flag_masks[8] = {N_FLAG, Z_FLAG, C_FLAG, V_FLAG,
+                                 Q_FLAG, I_FLAG, F_FLAG, T_FLAG};
+      stream << "[";
+
+      for (int i = 0; i < 8; i++) {
+        if (cpsr & flag_masks[i])
+          stream << flag_names[i];
+        else
+          stream << '-';
+      }
+
+      stream << "]";
+
+      spdlog::info("CPSR: 0x{:08x} {}", cpsr, stream.str());
     }
 
     bool evaluate_cond(Cond cond) {

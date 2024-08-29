@@ -38,8 +38,8 @@ struct TDataProcessingTest : public ArmInstructionTestWithFlags<I> {
 };
 
 enum AddSubOpcode {
-  ADD = 0,
-  SUB = 1,
+  REG_ADD = 0,
+  REG_SUB = 1,
 };
 
 template <u8 opcode>
@@ -69,9 +69,9 @@ struct TAddSubRegTest : public TDataProcessingTest<TAddSubReg> {
 
   u32 expected_value(CpuState &state) override {
     switch ((AddSubOpcode)opcode) {
-    case AddSubOpcode::ADD:
+    case AddSubOpcode::REG_ADD:
       return rm + rn;
-    case AddSubOpcode::SUB:
+    case AddSubOpcode::REG_SUB:
       return rn - rm;
     }
   }
@@ -103,9 +103,9 @@ struct TAddSubImmTest : public TDataProcessingTest<TAddSubImm> {
 
   u32 expected_value(CpuState &state) override {
     switch ((AddSubOpcode)opcode) {
-    case AddSubOpcode::ADD:
+    case AddSubOpcode::REG_ADD:
       return rn + imm;
-    case AddSubOpcode::SUB:
+    case AddSubOpcode::REG_SUB:
       return rn - imm;
     }
   }
@@ -119,20 +119,20 @@ TEST_CASE("THUMB SUB (1)") {
     auto rn = GENERATE(take(10, random<u32>(0, 0x7FFFFFFF)));
     auto imm = GENERATE(take(10, random<u32>(0, 7)));
 
-    TAddSubImmTest<AddSubOpcode::SUB> test(imm, irn, rn, ird, 0,
-                                           CpuState::C_FLAG);
+    TAddSubImmTest<AddSubOpcode::REG_SUB> test(imm, irn, rn, ird, 0,
+                                               CpuState::C_FLAG);
     test.test();
   }
 
   SECTION("N flag") {
-    TAddSubImmTest<AddSubOpcode::SUB> test(1, irn, -4, ird, -100,
-                                           CpuState::C_FLAG | CpuState::N_FLAG);
+    TAddSubImmTest<AddSubOpcode::REG_SUB> test(
+        1, irn, -4, ird, -100, CpuState::C_FLAG | CpuState::N_FLAG);
     test.test();
   }
 
   SECTION("C flag") {
-    TAddSubImmTest<AddSubOpcode::SUB> test(1, irn, 0x0, ird, 0,
-                                           CpuState::N_FLAG);
+    TAddSubImmTest<AddSubOpcode::REG_SUB> test(1, irn, 0x0, ird, 0,
+                                               CpuState::N_FLAG);
     test.test();
   }
 }
@@ -145,25 +145,25 @@ TEST_CASE("THUMB ADD (1)") {
     auto rn = GENERATE(take(10, random<u32>(0, 0x7FFFFFFF - 16)));
     auto imm = GENERATE(take(10, random<u32>(0, (1 << 3) - 1)));
 
-    TAddSubImmTest<AddSubOpcode::ADD> test(imm, irn, rn, ird, 0, 0);
+    TAddSubImmTest<AddSubOpcode::REG_ADD> test(imm, irn, rn, ird, 0, 0);
     test.test();
   }
 
   SECTION("N flag") {
-    TAddSubImmTest<AddSubOpcode::ADD> test(1, irn, -4, ird, 0,
-                                           CpuState::N_FLAG);
+    TAddSubImmTest<AddSubOpcode::REG_ADD> test(1, irn, -4, ird, 0,
+                                               CpuState::N_FLAG);
     test.test();
   }
 
   SECTION("V flag") {
-    TAddSubImmTest<AddSubOpcode::ADD> test(1, irn, 0x7FFFFFFF, ird, 0,
-                                           CpuState::N_FLAG | CpuState::V_FLAG);
+    TAddSubImmTest<AddSubOpcode::REG_ADD> test(
+        1, irn, 0x7FFFFFFF, ird, 0, CpuState::N_FLAG | CpuState::V_FLAG);
     test.test();
   }
 
   SECTION("C flag") {
-    TAddSubImmTest<AddSubOpcode::ADD> test(2, irn, 0xFFFFFFFF, ird, 0,
-                                           CpuState::C_FLAG);
+    TAddSubImmTest<AddSubOpcode::REG_ADD> test(2, irn, 0xFFFFFFFF, ird, 0,
+                                               CpuState::C_FLAG);
     test.test();
   }
 }
@@ -178,26 +178,26 @@ TEST_CASE("THUMB ADD (3)") {
     auto rn = GENERATE(take(10, random<u32>(0, 10000)));
 
     if (rm != rn) {
-      TAddSubRegTest<AddSubOpcode::ADD> test(irm, rm, irn, rn, ird, 0, 0);
+      TAddSubRegTest<AddSubOpcode::REG_ADD> test(irm, rm, irn, rn, ird, 0, 0);
       test.test();
     }
   }
 
   SECTION("N flag") {
-    TAddSubRegTest<AddSubOpcode::ADD> test(irm, -1, irn, 0, ird, 0,
-                                           CpuState::N_FLAG);
+    TAddSubRegTest<AddSubOpcode::REG_ADD> test(irm, -1, irn, 0, ird, 0,
+                                               CpuState::N_FLAG);
     test.test();
   }
 
   SECTION("V flag") {
-    TAddSubRegTest<AddSubOpcode::ADD> test(irm, 0x7FFFFFFF, irn, 2, ird, 0,
-                                           CpuState::V_FLAG | CpuState::N_FLAG);
+    TAddSubRegTest<AddSubOpcode::REG_ADD> test(
+        irm, 0x7FFFFFFF, irn, 2, ird, 0, CpuState::V_FLAG | CpuState::N_FLAG);
     test.test();
   }
 
   SECTION("C flag") {
-    TAddSubRegTest<AddSubOpcode::ADD> test(irm, 0xFFFFFFFF, irn, 2, ird, 0,
-                                           CpuState::C_FLAG);
+    TAddSubRegTest<AddSubOpcode::REG_ADD> test(irm, 0xFFFFFFFF, irn, 2, ird, 0,
+                                               CpuState::C_FLAG);
     test.test();
   }
 }
@@ -213,27 +213,27 @@ TEST_CASE("THUMB SUB (3)") {
 
     if (rm != rn) {
       auto output_flags = rn > rm ? CpuState::C_FLAG : CpuState::N_FLAG;
-      TAddSubRegTest<AddSubOpcode::SUB> test(irm, rm, irn, rn, ird, 0,
-                                             output_flags);
+      TAddSubRegTest<AddSubOpcode::REG_SUB> test(irm, rm, irn, rn, ird, 0,
+                                                 output_flags);
       test.test();
     }
   }
 
   SECTION("N flag") {
-    TAddSubRegTest<AddSubOpcode::SUB> test(irm, -1, irn, -2, ird, 0,
-                                           CpuState::N_FLAG);
+    TAddSubRegTest<AddSubOpcode::REG_SUB> test(irm, -1, irn, -2, ird, 0,
+                                               CpuState::N_FLAG);
     test.test();
   }
 
   SECTION("C flag") {
-    TAddSubRegTest<AddSubOpcode::SUB> test(irm, 11, irn, 10, ird, 0,
-                                           CpuState::N_FLAG);
+    TAddSubRegTest<AddSubOpcode::REG_SUB> test(irm, 11, irn, 10, ird, 0,
+                                               CpuState::N_FLAG);
     test.test();
   }
 
   SECTION("V flag") {
-    TAddSubRegTest<AddSubOpcode::SUB> test(irm, 1, irn, 0x80000000, ird, 0,
-                                           CpuState::C_FLAG | CpuState::V_FLAG);
+    TAddSubRegTest<AddSubOpcode::REG_SUB> test(
+        irm, 1, irn, 0x80000000, ird, 0, CpuState::C_FLAG | CpuState::V_FLAG);
     test.test();
   }
 }

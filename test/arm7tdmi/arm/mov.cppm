@@ -180,7 +180,6 @@ struct LoadOffsetTest : public LoadStoreBaseTest<LoadStoreOffset> {
 
     REQUIRE(state.read_register(ird) == target);
 
-    i32 sign = u ? 1 : -1;
     switch (switch_case(p, w)) {
     case switch_case(true, true):
       REQUIRE(state.read_register(irn) == address);
