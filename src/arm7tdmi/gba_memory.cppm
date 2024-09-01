@@ -87,7 +87,11 @@ export {
       spdlog::info("Read BIOS into system rom: {}", length);
     }
 
-    void invalid_read(u32 addr) { throw addr; }
+    u8 *_junk() {
+      u8 *r = &junk[0];
+      *reinterpret_cast<u32 *>(r) = 0;
+      return r;
+    }
 
     u8 *_u8_at_impl(u32 addr, u32 width, Mode mode) {
       /**
@@ -152,7 +156,7 @@ export {
           else if (offset == 0x804)
             return &io_ram_ext[4];
           else
-            invalid_read(addr);
+            break;
         }
 
       case PALETTE_RAM_BASE:

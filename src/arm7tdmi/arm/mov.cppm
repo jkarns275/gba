@@ -446,7 +446,13 @@ export {
                     variant<u32, ImmShiftOperand> operand)
         : Ins(instruction), register_offset(i), pre_indexed_or_offset(p),
           add_offset(u), w(w), load(l), irn(irn), ird(ird), operand(operand),
-          data_type(data_type) {}
+          data_type(data_type) {
+      if (i) {
+        assert(std::holds_alternative<ImmShiftOperand>(operand));
+      } else {
+        assert(std::holds_alternative<u32>(operand));
+      }
+    }
 
     static constexpr u32 switch_pair(bool p, bool w) {
       return (p ? 1 : 0) | (w ? 2 : 0);
@@ -505,7 +511,6 @@ export {
       } else {
         switch (data_type) {
         case BYTE:
-          spdlog::info("r{} -> {:#04x} -> {}", ird, addr, state.read<u8>(addr));
           state.write<u8>(addr, rd);
           break;
         case WORD:
@@ -606,8 +611,6 @@ export {
     void execute(CpuState &state) override {
       auto [address, rn_new] = get_address(state);
 
-      spdlog::info("S = {}; pc in reg list = {}", s,
-                   bool(register_list & MASK_PC));
       if (l) {
         Mode mode =
             s && !(register_list & MASK_PC) ? Mode::USR : state.get_mode();

@@ -249,7 +249,7 @@ export {
 
     TLoadStoreReg(u16 instruction)
         : LoadStoreOffset(
-              instruction, true, true, true, true, instruction & LOAD_MASK,
+              instruction, true, true, true, false, instruction & LOAD_MASK,
               thumb_reg(instruction, 3), thumb_reg(instruction, 0),
               (LoadStoreOffset::DataType)((instruction & B_MASK) >> 10),
               ImmShiftOperand(0, thumb_reg(instruction, 6), BitShift::LEFT)) {}
@@ -287,14 +287,15 @@ export {
     TLoadStoreImm5(u16 instruction)
         : LoadStoreOffset(instruction, false, true, true, false,
                           instruction & LOAD_MASK, thumb_reg(instruction, 3),
-                          thumb_reg(instruction, 0), LoadStoreOffset::WORD, 0) {
+                          thumb_reg(instruction, 0), LoadStoreOffset::WORD,
+                          0u) {
       data_type = instruction & BYTE_MASK ? LoadStoreOffset::BYTE
                                           : LoadStoreOffset::WORD;
 
       if (data_type == LoadStoreOffset::BYTE)
-        operand = (instruction >> 6) & 0x1F;
+        operand = (u32)((instruction >> 6) & 0x1F);
       else
-        operand = ((instruction >> 6) & 0x1F) * 4;
+        operand = (u32)(((instruction >> 6) & 0x1F) * 4);
     }
   };
 
@@ -333,7 +334,7 @@ export {
         : LoadStoreOffset(instruction, false, true, true, false,
                           instruction & LOAD_MASK, CpuState::INDEX_SP,
                           thumb_reg(instruction, 8), LoadStoreOffset::WORD,
-                          (instruction & 0xFF) * 4) {}
+                          (u32)((instruction & 0xFF) * 4)) {}
   };
 
   // ADD (5)
@@ -371,18 +372,30 @@ export {
                          RotateOperand(0xF, instruction & 0xFF)) {}
   };
 
-  // PUSH
-  // POP
+  // PUSH = STMDB SP!, <register list>
+  // POP = LDMIA SP!, <register list>
   // 0b1011_10_________
   struct TPushPopRegisterList : public LoadStoreMultiple {
     static constexpr u16 POP_FLAG = flag_mask(11);
     static constexpr u16 R_FLAG = flag_mask(8);
 
-    TPushPopRegisterList(u16 instruction)
-        : LoadStoreMultiple(instruction, false, true, false, true,
-                            instruction & POP_FLAG, CpuState::INDEX_SP,
-                            instruction & 0xFF) {
-      register_list |= (instruction & R_FLAG) << 7;
+    // dummy enumerations to emulated "named" constructors, see usage of
+    // TPushPopRegisterList constructor
+    enum _POP { POP };
+    enum _PUSH { PUSH };
+
+    TPushPopRegisterList(_POP, u16 instruction)
+        : LoadStoreMultiple(instruction, false, true, false, true, true,
+                            CpuState::INDEX_SP, instruction & 0xFF) {
+      register_list |=
+          (instruction & R_FLAG) ? flag_mask(CpuState::INDEX_PC) : 0;
+    }
+
+    TPushPopRegisterList(_PUSH, u16 instruction)
+        : LoadStoreMultiple(instruction, true, false, false, true, false,
+                            CpuState::INDEX_SP, instruction & 0xFF) {
+      register_list |=
+          (instruction & R_FLAG) ? flag_mask(CpuState::INDEX_LR) : 0;
     }
   };
 
@@ -391,11 +404,9 @@ export {
   // 0b1100____________
   struct TLoadStoreMultiple : public LoadStoreMultiple {
     TLoadStoreMultiple(u16 instruction)
-        : LoadStoreMultiple(instruction, false, true, false, false,
+        : LoadStoreMultiple(instruction, false, true, false, true,
                             instruction & LOAD_MASK, thumb_reg(instruction, 8),
-                            instruction & 0xFF) {
-      w = !(flag_mask(irn) & register_list);
-    }
+                            instruction & 0xFF) {}
   };
 
   // B (1)
@@ -453,7 +464,7 @@ export {
     i16 offset;
 
     TBranchWithLink(u16 instruction)
-        : Ins(instruction), opcode((Opcode)((instruction >> 11) & MASK_OPCODE)),
+        : Ins(instruction), opcode((Opcode)((instruction >> 11) & 0b11)),
           offset(instruction & MASK_OFFSET) {
       if (offset & MASK_11_BIT_SIGN) {
         offset |= 0xF800;
@@ -461,7 +472,7 @@ export {
     }
 
     void execute(CpuState &state) override {
-      u32 pc = state.read_pc();
+      u32 current_pc = state.read_current_pc();
       switch (opcode) {
       case UNCOND:
         state.write_pc(state.read_pc() + ((i32)offset << 1));
@@ -470,18 +481,21 @@ export {
       case BRANCH_LINK_EXCHANGE:
         state.write_pc((state.read_lr() + ((offset & MASK_OFFSET) << 1)) &
                        0xFFFFFFFC);
-        state.write_lr((pc + 2) | 1);
+        state.write_lr((current_pc + 2) | 1);
         state.clear_flag(CpuState::T_FLAG);
         break;
 
-      case LINK:
-        state.write_lr(pc + ((i32)offset << 12));
+      case LINK: {
+        u32 x = state.read_pc() + (i32)(offset << 12);
+        state.write_lr(x);
         break;
+      }
 
-      case BRANCH_LINK:
-        state.write_pc(state.read_lr() + ((offset & MASK_OFFSET)));
-        state.write_lr((pc + 2) | 1);
+      case BRANCH_LINK: {
+        state.write_pc(state.read_lr() + ((offset & MASK_OFFSET) << 1));
+        state.write_lr((current_pc + 2) | 1);
         break;
+      }
       }
     }
   };
@@ -494,7 +508,12 @@ export {
     case 0b0101:
     case 0b1100:
     case 0b1101: // push pop rl
-      return make_unique<TPushPopRegisterList>(instruction);
+      if (TPushPopRegisterList::POP_FLAG & instruction)
+        return make_unique<TPushPopRegisterList>(TPushPopRegisterList::POP,
+                                                 instruction);
+      else
+        return make_unique<TPushPopRegisterList>(TPushPopRegisterList::PUSH,
+                                                 instruction);
 
     case 0b1110: // sw break / not implemented
       return make_unique<UndefinedThumbInstruction>(instruction);
@@ -612,6 +631,8 @@ export {
     unique_ptr<Ins> instruction;
 
     ThumbInstruction(u16 instruction)
-        : instruction(thumb_ins_map[instruction >> 10](instruction)) {}
+        : instruction(thumb_ins_map[instruction >> 10](instruction)) {
+      this->instruction->cond = Cond::AL;
+    }
   };
 }

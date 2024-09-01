@@ -74,7 +74,7 @@ export {
     ImmShiftOperand(u8 shift_by, u8 irm, BitShift shift_type)
         : shift_by(shift_by), irm(irm), shift_type(shift_type) {}
 
-    ImmShiftOperand(u32 instruction) {
+    explicit ImmShiftOperand(u32 instruction) {
       Nibbles nibbles(instruction);
 
       shift_by = std::min<u8>(31, (u8)((instruction & 0xF80) >> 7));
