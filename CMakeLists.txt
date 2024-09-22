@@ -31,11 +31,20 @@ set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 
 find_package(spdlog CONFIG REQUIRED)
-find_package(Catch2 3)
+find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3)
 
 add_subdirectory(src)
 
+find_package(Catch2 3)
 # Only build tests if Catch2 is available
 IF (Catch2_FOUND)
     add_subdirectory(test)
 ENDIF()
+
+# Exports compile_commands.json to project root for ide support
+add_custom_target(
+    copy-compile-commands ALL
+    ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_BINARY_DIR}/compile_commands.json
+        ${CMAKE_CURRENT_LIST_DIR}
+)

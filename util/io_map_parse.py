@@ -28,19 +28,20 @@ for line in lines:
         case "R/W":
             readonly = False
 
-    dt = "gword_t"
-    match m.group("size"):
-        case "4":
-            dt = "gword_t"
-        case "2":
-            dt = "gshort_t"
-        case "2x10h":
-            dt = "gshort_t"
+    dt = "u32"
+    # match m.group("size"):
+    #     case "4":
+    #         dt = ""
+    #     case "2":
+    #         dt = "gshort_t"
+    #     case "2x10h":
+    #         dt = "gshort_t"
 
-    if readonly:
-        ty = f"const {dt} * const"
-    else:
-        ty = f"{dt} * const"
+    ty = f"const {dt}"
+    # if readonly:
+    #     ty = f"const {dt} * const"
+    # else:
+    #     ty = f"{dt} * const"
 
     match m.group("name"):
         case "?":

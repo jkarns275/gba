@@ -1,22 +1,30 @@
 file(GLOB SRCS *.cppm)
 file(GLOB ARM7TDMI_SRCS arm7tdmi/*.cppm arm7tdmi/arm/*.cppm arm7tdmi/thumb/*.cppm)
-file(GLOB GBA_SRCS gba/*.cppm)
+file(GLOB GBA_SRCS gba/*.cppm gba/io/*.cppm)
 
-add_library(arm7tdmi_lib SHARED)
-target_sources(arm7tdmi_lib
-  PUBLIC
-    FILE_SET cxx_modules TYPE CXX_MODULES FILES
-    ${ARM7TDMI_SRCS}
-    FILE_SET cxx_modules TYPE CXX_MODULES FILES
-    ${SRCS}
-)
+add_library(util_lib STATIC)
+target_sources(util_lib PUBLIC FILE_SET cxx_modules TYPE CXX_MODULES FILES ${SRCS})
+
+add_library(arm7tdmi_lib STATIC)
+target_sources(arm7tdmi_lib PUBLIC FILE_SET cxx_modules TYPE CXX_MODULES FILES ${ARM7TDMI_SRCS})
 target_link_libraries(arm7tdmi_lib PRIVATE spdlog::spdlog)
+target_link_libraries(arm7tdmi_lib PRIVATE util_lib)
+
+add_library(gba_lib STATIC)
+target_sourceS(gba_lib PUBLIC FILE_SET cxx_modules TYPE CXX_MODULES FILES ${GBA_SRCS})
+target_link_libraries(gba_lib PRIVATE arm7tdmi_lib)
+target_link_libraries(gba_lib PRIVATE spdlog::spdlog)
+target_link_libraries(gba_lib PRIVATE util_lib)
 
 add_executable(main)
-target_sources(main
-  PUBLIC
-    FILE_SET cxx_modules TYPE CXX_MODULES FILES
-      bin/main.cppm
-)
+target_sources(main PUBLIC FILE_SET cxx_modules TYPE CXX_MODULES FILES bin/main.cppm)
 target_link_libraries(main PRIVATE spdlog::spdlog)
-target_link_libraries(main PUBLIC arm7tdmi_lib)
+target_link_libraries(main PRIVATE arm7tdmi_lib)
+target_link_libraries(main PRIVATE gba_lib)
+
+add_executable(main2)
+target_sources(main2 PUBLIC FILE_SET cxx_modules TYPE CXX_MODULES FILES bin/main2.cppm)
+target_link_libraries(main2 PRIVATE SDL3::SDL3)
+target_link_libraries(main2 PRIVATE spdlog::spdlog)
+target_link_libraries(main2 PRIVATE arm7tdmi_lib)
+target_link_libraries(main2 PRIVATE gba_lib)

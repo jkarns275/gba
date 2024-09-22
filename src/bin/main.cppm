@@ -23,6 +23,8 @@ import arm7tdmi.instruction;
 import arm7tdmi.arm;
 import arm7tdmi.thumb;
 
+import gba.memory;
+
 using std::make_unique;
 using std::unique_ptr;
 using std::unordered_set;
