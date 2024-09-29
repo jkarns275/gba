@@ -52,12 +52,16 @@ export {
       switch (width) {
       case 1:
         *p = value;
+        break;
       case 2:
         *(u16 *)p = value;
+        break;
       case 4:
         *(u32 *)p = value;
+        break;
       case 8:
         *(u64 *)p = value;
+        break;
       default:
         assert(false);
       }

@@ -37,7 +37,7 @@ export {
         : Ins(instruction), swi_number(swi_number) {}
 
     void execute(CpuState &state) override {
-      state.write_register(14, state.read_current_pc() + 4);
+      state.write_register(14, state.read_current_pc() + 4, Mode::SVC);
       state.write_spsr(state.read_cpsr(), Mode::SVC);
       state.set_mode(Mode::SVC);
       state.clear_flag(CpuState::T_FLAG);
