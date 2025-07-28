@@ -15,6 +15,7 @@ target_sourceS(gba_lib PUBLIC FILE_SET cxx_modules TYPE CXX_MODULES FILES ${GBA_
 target_link_libraries(gba_lib PRIVATE arm7tdmi_lib)
 target_link_libraries(gba_lib PRIVATE spdlog::spdlog)
 target_link_libraries(gba_lib PRIVATE util_lib)
+target_link_libraries(gba_lib PRIVATE SDL3::SDL3)
 
 add_executable(main)
 target_sources(main PUBLIC FILE_SET cxx_modules TYPE CXX_MODULES FILES bin/main.cppm)

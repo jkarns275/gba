@@ -32,7 +32,7 @@ export {
     BranchExchange(u32 instruction, bool set_lr, u8 irm)
         : Ins(instruction), set_lr(set_lr), irm(irm) {}
 
-    void execute(CpuState &state) override {
+    u8 execute(CpuState &state) override {
       if (set_lr) {
         if (state.is_thumb_mode())
           state.write_lr(state.read_current_pc() + 2);
@@ -48,6 +48,8 @@ export {
         state.set_flag(CpuState::T_FLAG);
       else
         state.clear_flag(CpuState::T_FLAG);
+
+      return 3;
     }
 
     std::string disassemble() override {
@@ -97,7 +99,7 @@ export {
     BranchWithLink(u32 instruction, bool l, bool exchange, i32 offset)
         : Ins(instruction), l(l), exchange(exchange), offset(offset) {}
 
-    void execute(CpuState &state) override {
+    u8 execute(CpuState &state) override {
       if (exchange || l) {
         u32 lr = state.read_current_pc();
         if (state.is_thumb_mode()) {
@@ -112,6 +114,8 @@ export {
 
       if (exchange)
         state.set_flag(CpuState::T_FLAG);
+
+      return 3;
     }
 
     std::string disassemble() override {

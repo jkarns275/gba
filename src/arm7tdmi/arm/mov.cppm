@@ -203,11 +203,14 @@ export {
       }
     }
 
-    void execute(CpuState &state) override {
-      if (l)
+    u8 execute(CpuState &state) override {
+      if (l) {
         load(state);
-      else
+        return 3 + (2 * u8(ird == CpuState::INDEX_PC));
+      } else {
         store(state);
+        return 2;
+      }
     }
 
     static constexpr u32 switch_pair(bool s, IntegralType integral_type,
@@ -275,7 +278,7 @@ export {
     MovStatusToReg(u32 instruction)
         : Ins(instruction), r(MASK_R & instruction), ird(nibbles[3]) {}
 
-    void execute(CpuState &state) override {
+    u8 execute(CpuState &state) override {
       u32 rd;
 
       if (r) {
@@ -284,6 +287,8 @@ export {
         rd = state.read_cpsr();
       }
       state.write_register(ird, rd);
+
+      return 1;
     }
 
     std::string disassemble() override {
@@ -325,7 +330,7 @@ export {
       }
     }
 
-    void execute(CpuState &state) override {
+    u8 execute(CpuState &state) override {
       u32 operand;
 
       if (std::holds_alternative<u8>(this->operand)) {
@@ -338,7 +343,7 @@ export {
 
       Mode mode = state.get_mode();
       if (r && !mode_has_spsr(mode))
-        return;
+        return 1;
 
       u32 psr = r ? state.read_spsr() : state.read_cpsr();
       u32 mask = 0;
@@ -357,6 +362,8 @@ export {
         state.write_spsr(psr);
       else
         state.write_cpsr(psr);
+
+      return 1;
     }
 
     std::string disassemble() override {
@@ -490,9 +497,10 @@ export {
       return addr;
     }
 
-    void execute(CpuState &state) override {
+    u8 execute(CpuState &state) override {
       u32 rd = state.read_register(ird);
       u32 addr = get_address(state);
+      u8 cycles;
 
       if (load) {
         Mode mode = Mode::USR;
@@ -508,6 +516,8 @@ export {
           rd = state.memory.rotated_at(addr, mode);
           break;
         }
+
+        cycles = 3 + 2 * u32(ird == CpuState::INDEX_PC);
       } else {
         switch (data_type) {
         case BYTE:
@@ -517,9 +527,12 @@ export {
           state.write<u32>(addr & ~(0b11), rd);
           break;
         }
+
+        cycles = 2;
       }
 
       state.write_register(ird, rd);
+      return cycles;
     }
 
     std::string disassemble_addressing_mode() {
@@ -608,8 +621,12 @@ export {
       return {start, rn};
     }
 
-    void execute(CpuState &state) override {
+    u8 execute(CpuState &state) override {
       auto [address, rn_new] = get_address(state);
+
+      // number of registers to copy, used for cycle counting.
+      u8 n = std::max(1, count_ones(register_list));
+      u8 cycle_count;
 
       if (l) {
         Mode mode =
@@ -630,6 +647,8 @@ export {
           address += 4;
         }
 
+        cycle_count =
+            2 + n + 2 * u32((register_list & CpuState::INDEX_PC) != 0);
       } else {
         Mode mode = s ? Mode::USR : state.get_mode();
 
@@ -639,9 +658,13 @@ export {
             address += 4;
           }
         }
+
+        cycle_count = 1 + n;
       }
 
       state.write_register(irn, rn_new);
+
+      return cycle_count;
     }
 
     static constexpr u32 switch_pair(bool a, bool b) {

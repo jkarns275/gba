@@ -104,6 +104,11 @@ export {
     static inline constexpr u32 INDEX_LR = 14;
     static inline constexpr u32 INDEX_SP = 13;
 
+    static inline constexpr u32 SP_USR_INIT = 0x03007F00;
+    static inline constexpr u32 SP_SVC_INIT = 0x03007FE0;
+    static inline constexpr u32 SP_IRQ_INIT = 0x03007FA0;
+
+    // Specific to GBA.
     u32 reg[16] = {};
     u32 reg_bank_fiq[7] = {};
     u32 reg_bank_svc[2] = {};
@@ -118,15 +123,22 @@ export {
 
     Memory &memory;
 
-    CpuState(Memory &memory) : memory(memory) { memory.cpu_state = this; }
+    CpuState(Memory &memory) : memory(memory) {
+      memory.cpu_state = this;
+
+      reg[13] = SP_USR_INIT;
+      reg_bank_irq[0] = SP_IRQ_INIT;
+      reg_bank_svc[0] = SP_SVC_INIT;
+    }
 
     bool is_thumb_mode() { return cpsr & CpuState::T_FLAG; }
 
-    void cycles(u32 n) { cycle_count += n; }
+    void cycles(u8 n) { cycle_count += n; }
+    u64 get_cycles() { return cycle_count; }
     void reset_cycles() { cycle_count = 0; }
 
   private:
-    u32 cycle_count = 0;
+    u64 cycle_count = 0;
 
     u32 &get_spsr(Mode mode) {
       assert(mode != SYS);
@@ -193,9 +205,9 @@ export {
 
       if (index == INDEX_PC) {
         if (is_thumb_mode()) {
-          return reg + 4;
+          return (reg + 4) & ~1;
         } else {
-          return reg + 8;
+          return (reg + 8) & ~0b11;
         }
       } else {
         return reg;
@@ -264,7 +276,7 @@ export {
 
     void write_pc(u32 value) { write_register(INDEX_PC, value); }
 
-    void print_registers() {
+    void print_state() {
       std::stringstream stream;
       for (int i = 0; i < 16; i++) {
         if (i % 4 == 0 && i) {
@@ -273,22 +285,30 @@ export {
           stream.clear();
         }
         u32 value = read_register(i);
-        if (i == 15)
-          value = read_current_pc();
-        stream << std::format("{:>4}: 0x{:08x}", pretty_reg_name(i), value)
-               << "  ";
+        if (i == 15) {
+          if (is_thumb_mode())
+            value -= 2;
+          else
+            value -= 4;
+        }
+        if (i % 4 == 0) {
+          stream << std::format("{:>3}: {:08X}", std::format("r{}", i), value);
+
+        } else {
+          stream << std::format("{:>5}: {:08X}", std::format("r{}", i), value);
+        }
       }
 
       spdlog::info(stream.str());
       stream.str("");
       stream.clear();
 
-      const string flag_names = "NZCVQIFT";
-      const u32 flag_masks[8] = {N_FLAG, Z_FLAG, C_FLAG, V_FLAG,
-                                 Q_FLAG, I_FLAG, F_FLAG, T_FLAG};
+      const string flag_names = "NZCVIFT";
+      const u32 flag_masks[7] = {N_FLAG, Z_FLAG, C_FLAG, V_FLAG,
+                                 I_FLAG, F_FLAG, T_FLAG};
       stream << "[";
 
-      for (int i = 0; i < 8; i++) {
+      for (int i = 0; i < 7; i++) {
         if (cpsr & flag_masks[i])
           stream << flag_names[i];
         else
@@ -297,7 +317,8 @@ export {
 
       stream << "]";
 
-      spdlog::info("CPSR: 0x{:08x} {}", cpsr, stream.str());
+      spdlog::info("cpsr: {:08X} {}", cpsr, stream.str());
+      spdlog::info("Cycle: {}", cycle_count);
     }
 
     bool evaluate_cond(Cond cond) {

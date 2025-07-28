@@ -149,7 +149,7 @@ export {
         : Ins(instruction), opcode(opcode), s(s), irn(irn), ird(ird),
           operand(operand) {}
 
-    void execute(CpuState &state) override {
+    u8 execute(CpuState &state) override {
       ShifterOperandValue operand =
           std::visit([&](ShifterOperand &op) { return op.evaluate(state); },
                      this->operand);
@@ -298,6 +298,13 @@ export {
 
         state.write_cpsr(cpsr);
       }
+
+      static std::array<u8, 4> cycles = {1, 2, 3, 4};
+
+      u8 r15_dest = ird == CpuState::INDEX_PC;
+      u8 reg_shift = std::holds_alternative<RegShiftOperand>(this->operand);
+
+      return cycles[(r15_dest << 1) | reg_shift];
     }
 
     std::string disassemble() override {

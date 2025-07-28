@@ -27,7 +27,7 @@ export {
         : Ins(instruction), b(MASK_B & instruction), irn(nibbles[4]),
           ird(nibbles[3]), irm(nibbles[0]) {}
 
-    void execute(CpuState &state) override {
+    u8 execute(CpuState &state) override {
       u32 rd, rn = state.read_register(irn), rm = state.read_register(irm);
 
       if (b) {
@@ -39,6 +39,8 @@ export {
       }
 
       state.write_register(ird, rd);
+
+      return 4;
     }
 
     std::string disassemble() override {

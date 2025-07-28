@@ -136,7 +136,7 @@ export {
 
       switch (loc) {
       case SYSTEM_ROM_BASE:
-        cpu_state->cycles(1);
+        // cpu_state->cycles(1);
         // TODO: If we read past 0x0003FFF, we need to return the next
         // instruction. for some reason that is what the console does.
         if (offset < SYSTEM_ROM_SIZE) {
@@ -147,34 +147,34 @@ export {
         break;
 
       case EW_RAM_BASE:
-        cpu_state->cycles(width > 2 ? 6 : 3);
+        // cpu_state->cycles(width > 2 ? 6 : 3);
         p = &ew_ram[offset % EW_RAM_SIZE];
         break;
 
       case IW_RAM_BASE:
-        cpu_state->cycles(1);
+        // cpu_state->cycles(1);
         p = &iw_ram[offset % IW_RAM_SIZE];
         break;
 
       case IO_RAM_BASE:
-        cpu_state->cycles(1);
+        // cpu_state->cycles(1);
 
         return io_ram.read(offset, width);
         // There are no fields that are "write only", so we can read this data
         // normally.
 
       case PALETTE_RAM_BASE:
-        cpu_state->cycles(1 + (width >> 2));
+        // cpu_state->cycles(1 + (width >> 2));
         p = &palette_ram[offset % PALETTE_RAM_SIZE];
         break;
 
       case VIDEO_RAM_BASE:
-        cpu_state->cycles(1 + (width >> 2));
+        // cpu_state->cycles(1 + (width >> 2));
         p = &video_ram[offset % VIDEO_RAM_SIZE];
         break;
 
       case OAM_BASE:
-        cpu_state->cycles(1);
+        // cpu_state->cycles(1);
         p = &oam[offset % OAM_SIZE];
         break;
 
@@ -182,11 +182,11 @@ export {
       case GAME_PAK_ROM_BASE:
       case GAME_PAK_IMG_1_BASE:
       case GAME_PAK_IMG_2_BASE:
-        cpu_state->cycles(width > 2 ? 8 : 5);
+        // cpu_state->cycles(width > 2 ? 8 : 5);
         p = &game_pak_rom[offset];
         break;
       case GAME_PAK_FLASH_BASE:
-        cpu_state->cycles(5 * width);
+        // cpu_state->cycles(5 * width);
         p = &game_pak_flash[offset];
         break;
       default:
@@ -226,20 +226,20 @@ export {
       switch (loc) {
       case SYSTEM_ROM_BASE:
         // No writing to ROM
-        cpu_state->cycles(1);
+        // cpu_state->cycles(1);
         return;
       case EW_RAM_BASE:
-        cpu_state->cycles(width > 2 ? 6 : 3);
+        // cpu_state->cycles(width > 2 ? 6 : 3);
         p = &ew_ram[offset % EW_RAM_SIZE];
         break;
 
       case IW_RAM_BASE:
-        cpu_state->cycles(1);
+        // cpu_state->cycles(1);
         p = &iw_ram[offset % IW_RAM_SIZE];
         break;
 
       case IO_RAM_BASE:
-        cpu_state->cycles(1);
+        // cpu_state->cycles(1);
         io_ram.write(offset, value, width);
         return;
         // if (offset < IO_RAM_SIZE) {
@@ -257,17 +257,17 @@ export {
         // break;
 
       case PALETTE_RAM_BASE:
-        cpu_state->cycles(1 + (width >> 2));
+        // cpu_state->cycles(1 + (width >> 2));
         p = &palette_ram[offset % PALETTE_RAM_SIZE];
         break;
 
       case VIDEO_RAM_BASE:
-        cpu_state->cycles(1 + (width >> 2));
+        // cpu_state->cycles(1 + (width >> 2));
         p = &video_ram[offset % VIDEO_RAM_SIZE];
         break;
 
       case OAM_BASE:
-        cpu_state->cycles(1);
+        // cpu_state->cycles(1);
         p = &oam[offset % OAM_SIZE];
         break;
 
@@ -275,10 +275,10 @@ export {
       case GAME_PAK_ROM_BASE:
       case GAME_PAK_IMG_1_BASE:
       case GAME_PAK_IMG_2_BASE:
-        cpu_state->cycles(width > 2 ? 8 : 5);
+        // cpu_state->cycles(width > 2 ? 8 : 5);
         return;
       case GAME_PAK_FLASH_BASE:
-        cpu_state->cycles(5 * width);
+        // cpu_state->cycles(5 * width);
         p = &game_pak_flash[offset];
         break;
       default:

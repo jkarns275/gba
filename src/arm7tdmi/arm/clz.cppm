@@ -23,10 +23,12 @@ export {
     CountLeadingZeros(u32 instruction)
         : Ins(instruction), ird(nibbles[3]), irn(nibbles[0]) {}
 
-    void execute(CpuState &state) override {
+    u8 execute(CpuState &state) override {
       u32 rn = state.read_register(irn);
 
       state.write_register(ird, count_leading_zeros(rn));
+
+      return 1 + u8(ird == CpuState::INDEX_PC);
     }
 
     std::string disassemble() override {

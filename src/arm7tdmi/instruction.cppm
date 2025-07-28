@@ -29,7 +29,7 @@ export {
         : nibbles(instruction), cond((Cond)(instruction >> 28)) {}
     virtual ~Ins() {}
 
-    virtual void execute(CpuState &cpu_state) = 0;
+    virtual u8 execute(CpuState &cpu_state) = 0;
     virtual string disassemble() { return "<UNIMPLEMENTED DISASSEMBLY>"; }
   };
 

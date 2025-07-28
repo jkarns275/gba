@@ -1,3 +1,4 @@
+module;
 export module arm7tdmi;
 
 export import :cpu_state;

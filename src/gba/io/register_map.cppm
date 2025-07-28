@@ -315,8 +315,6 @@ export {
 
   // Write only
   struct __attribute__((packed)) BrightnessCoeff {
-    static constexpr u32 READ_MASK = 0;
-
     u8 coeff : 5;
     u32 : 27;
   };

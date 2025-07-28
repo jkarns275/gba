@@ -7,6 +7,22 @@ export module arm7tdmi.arm:mul;
 import arm7tdmi;
 import arm7tdmi.instruction;
 
+/*
+ * Cycle counts for MLA and MUL:
+ * There is one extra I cycle when accumulating, otherwise they identical.
+ * The number of cycles is k + m + a where m is some value determined by the
+ * multiplier, assumed to be rs since the manual specifies that early stopping
+ * algorithms should be implemented w.r.t. rs. k is 1 for short mul and 2 for
+ * long.
+ *
+ * The value of m is equal to 4 - the number of fully zero consecutive
+ * bytes starting from the left most byte up to 3.
+ */
+static inline u32 compute_m(u32 rs) {
+  return 4 -
+         std::min(1, std::max(std::countl_zero(rs), std::countl_one(rs)) / 8);
+}
+
 export {
   ;
 
@@ -32,17 +48,11 @@ export {
         : Ins(instruction), a(a), s(s), ird(ird), irn(irn), irs(irs), irm(irm) {
     }
 
-    void execute(CpuState &state) override {
+    u8 execute(CpuState &state) override {
       u32 rn = state.read_register(irn), rs = state.read_register(irs),
           rm = state.read_register(irm);
 
-      u32 value;
-
-      if (a) {
-        value = rm * rs + rn;
-      } else {
-        value = rm * rs;
-      }
+      u32 value = rm * rs + (u32(a) * rn);
 
       state.write_register(ird, value);
 
@@ -51,6 +61,8 @@ export {
         if (value == 0)
           state.set_flag(CpuState::Z_FLAG);
       }
+
+      return 2 + compute_m(rs) + u32(a);
     }
 
     std::string disassemble() override {
@@ -82,7 +94,7 @@ export {
           s(MASK_S & instruction), ird_msw(nibbles[4]), ird_lsw(nibbles[3]),
           irs(nibbles[2]), irm(nibbles[0]) {}
 
-    void execute(CpuState &state) override {
+    u8 execute(CpuState &state) override {
       u32 rd_lo = state.read_register(ird_lsw),
           rd_hi = state.read_register(ird_msw), rs = state.read_register(irs),
           rm = state.read_register(irm);
@@ -125,6 +137,8 @@ export {
 
       state.write_register(ird_msw, rd_hi);
       state.write_register(ird_lsw, rd_lo);
+
+      return 2 + compute_m(rs) + u32(a);
     }
 
     static constexpr u32 switch_case(bool _0, bool _1) {

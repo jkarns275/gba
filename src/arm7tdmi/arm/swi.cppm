@@ -36,7 +36,7 @@ export {
     SoftwareInterrupt(u32 instruction, u32 swi_number)
         : Ins(instruction), swi_number(swi_number) {}
 
-    void execute(CpuState &state) override {
+    u8 execute(CpuState &state) override {
       state.write_register(14, state.read_current_pc() + 4, Mode::SVC);
       state.write_spsr(state.read_cpsr(), Mode::SVC);
       state.set_mode(Mode::SVC);
@@ -44,6 +44,8 @@ export {
       state.set_flag(CpuState::F_FLAG);
 
       state.write_pc(0x00000008);
+
+      return 3;
     }
 
     std::string disassemble() override {

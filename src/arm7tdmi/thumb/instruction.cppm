@@ -220,17 +220,23 @@ export {
 
   // THUMB LDR (3)
   // 0b01001___________
-  struct TLiteralPoolLoad : public LoadStoreOffset {
+  struct TLiteralPoolLoad : public Ins {
     static inline const InstructionDefinition *definition =
         new TInstructionDefinition({new TValuePiece(0b01001, 5),
                                     new TRegPiece("Rd"),
                                     new TIntegralPiece(8, "offset")});
 
+    u8 ird, imm8;
+
     TLiteralPoolLoad(u16 instruction)
-        : LoadStoreOffset(instruction, false, true, true, false, true,
-                          CpuState::INDEX_PC, thumb_reg(instruction, 8),
-                          LoadStoreOffset::WORD,
-                          (u32)((instruction & 0xFF) << 2)) {}
+        : Ins(instruction), ird((instruction >> 8) & 0b111),
+          imm8(instruction & 0xFF) {}
+
+    u8 execute(CpuState &state) override {
+      u32 pc = state.read_pc();
+      state.write_register(ird, state.read<u32>((pc & ~3) + (imm8 << 2)));
+      return 3;
+    }
   };
 
   // LDR (2)
@@ -346,9 +352,10 @@ export {
         : Ins(instruction), ird(thumb_reg(instruction, 8)),
           imm(instruction & 0xFF) {}
 
-    void execute(CpuState &state) override {
+    u8 execute(CpuState &state) override {
       u32 pc = state.read_pc() & 0xFFFFFFFC;
       state.write_register(ird, pc + (imm << 2));
+      return 1;
     }
   };
 
@@ -419,10 +426,12 @@ export {
         : Ins(instruction), cond((Cond)((instruction >> 8) & 0xF)),
           word((i8)(instruction & 0xFF)) {}
 
-    void execute(CpuState &state) override {
+    u8 execute(CpuState &state) override {
       if (state.evaluate_cond(cond)) {
         state.write_pc(state.read_pc() + (word << 1));
       }
+
+      return 3;
     }
   };
 
@@ -430,7 +439,7 @@ export {
   struct UndefinedThumbInstruction : public Ins {
     UndefinedThumbInstruction(u16 instruction) : Ins(instruction) {}
 
-    void execute(CpuState &state) {}
+    u8 execute(CpuState &state) override { return 0; }
 
     std::string disassemble() override {
       return std::format("{:#4x} <UNSUPPORTED THUMB INSTRUCTION>",
@@ -471,7 +480,7 @@ export {
       }
     }
 
-    void execute(CpuState &state) override {
+    u8 execute(CpuState &state) override {
       u32 current_pc = state.read_current_pc();
       switch (opcode) {
       case UNCOND:
@@ -497,6 +506,8 @@ export {
         break;
       }
       }
+
+      return 3;
     }
   };
 
@@ -517,6 +528,30 @@ export {
 
     case 0b1110: // sw break / not implemented
       return make_unique<UndefinedThumbInstruction>(instruction);
+    default:
+      __builtin_unreachable();
+    }
+  }
+
+  u8 execute_block_1011(u16 instruction, CpuState &state) {
+    switch ((instruction >> 8) & 0xF) {
+    case 0b0000: // adjust sp
+      return execute<TAddToSP>(instruction, state);
+    case 0b0100:
+    case 0b0101:
+    case 0b1100:
+    case 0b1101: // push pop rl
+      if (TPushPopRegisterList::POP_FLAG & instruction) {
+        return TPushPopRegisterList(TPushPopRegisterList::POP, instruction)
+            .execute(state);
+      } else {
+        return TPushPopRegisterList(TPushPopRegisterList::PUSH, instruction)
+            .execute(state);
+      }
+
+    default:
+    case 0b1110: // sw break / not implemented
+      return execute<UndefinedThumbInstruction>(instruction, state);
     }
   }
 
@@ -534,8 +569,21 @@ export {
     }
   }
 
+  u8 execute_block_010001(u16 instruction, CpuState &state) {
+    switch (instruction >> 8) {
+    case 0b01000100:
+    case 0b01000101:
+    case 0b01000110:
+      return execute<TDataProcessingHiReg>(instruction, state);
+    case 0b01000111:
+      return execute<TBranchExchange>(instruction, state);
+    default:
+      return execute<UndefinedThumbInstruction>(instruction, state);
+    }
+  }
+
   // clang-format off
-  const std::function<unique_ptr<Ins>(u16)> thumb_ins_map[64] = {
+  const std::function<unique_ptr<Ins>(u16)> thumb_decode_map[64] = {
       // 0b000000 - 0b000101 shift by imm
       make_unique<TShiftImm, u16>,
       make_unique<TShiftImm, u16>,
@@ -625,14 +673,101 @@ export {
       make_unique<TBranchWithLink, u16>,
   };
 
-  // clang-format on
+  unique_ptr<Ins> thumb_decode(u16 ins) {
+    return thumb_decode_map[ins >> 10](ins);
+  }
 
-  struct ThumbInstruction {
-    unique_ptr<Ins> instruction;
-
-    ThumbInstruction(u16 instruction)
-        : instruction(thumb_ins_map[instruction >> 10](instruction)) {
-      this->instruction->cond = Cond::AL;
-    }
+  const InstructionExecutor thumb_executor_map[64] = {
+      // 0b000000 - 0b000101 shift by imm
+      execute<TShiftImm>,
+      execute<TShiftImm>,
+      execute<TShiftImm>,
+      execute<TShiftImm>,
+      execute<TShiftImm>,
+      execute<TShiftImm>,
+      // 0b000110 add sub reg
+      execute<TAddSubReg>,
+      // 0b000111
+      execute<TAddSubImm>,
+      // 0b001000 - 0b001111
+      execute<TDataProcessingImm>,
+      execute<TDataProcessingImm>,
+      execute<TDataProcessingImm>,
+      execute<TDataProcessingImm>,
+      execute<TDataProcessingImm>,
+      execute<TDataProcessingImm>,
+      execute<TDataProcessingImm>,
+      execute<TDataProcessingImm>,
+      // 0b010000
+      execute<TDataProcessing>,
+      // 0b010001
+      execute_block_010001,
+      // 0b010010 - 0b010011 load from literal pool
+      execute<TLiteralPoolLoad>,
+      execute<TLiteralPoolLoad>,
+      // 0b010100 - 0b010111 load store reg offset
+      execute<TLoadStoreReg>,
+      execute<TLoadStoreReg>,
+      execute<TLoadStoreReg>,
+      execute<TLoadStoreReg>,
+      // 0b011000 - 0b011111
+      execute<TLoadStoreImm5>,
+      execute<TLoadStoreImm5>,
+      execute<TLoadStoreImm5>,
+      execute<TLoadStoreImm5>,
+      execute<TLoadStoreImm5>,
+      execute<TLoadStoreImm5>,
+      execute<TLoadStoreImm5>,
+      execute<TLoadStoreImm5>,
+      // 0b100000 - 0b100011
+      execute<TLoadStoreShort>,
+      execute<TLoadStoreShort>,
+      execute<TLoadStoreShort>,
+      execute<TLoadStoreShort>,
+      // 0b100100 - 0b100111
+      execute<TLoadStoreImm8>,
+      execute<TLoadStoreImm8>,
+      execute<TLoadStoreImm8>,
+      execute<TLoadStoreImm8>,
+      // 0b101000 - 0b101001
+      execute<TAddWithPC>,
+      execute<TAddWithPC>,
+      // 0b101010 - 0b101011
+      execute<TAddWithSP>,
+      execute<TAddWithSP>,
+      // 0b101100 - 0b101111 misc
+      execute_block_1011,
+      execute_block_1011,
+      execute_block_1011,
+      execute_block_1011,
+      // 0b110100 - 0b110111 load store multiple
+      execute<TLoadStoreMultiple>,
+      execute<TLoadStoreMultiple>,
+      execute<TLoadStoreMultiple>,
+      execute<TLoadStoreMultiple>,
+      // 0b110100 - 0b110111 conditional branch
+      execute<TConditionalBranch>,
+      execute<TConditionalBranch>,
+      execute<TConditionalBranch>,
+      execute<TConditionalBranch>,
+      // 0b11100x unconditional branch
+      execute<TBranchWithLink>,
+      execute<TBranchWithLink>,
+      // 0b1101x BLX suffix
+      // node that when these instructions end with 1, they are technically
+      // undefined but that doesn't really matter since GBA machine code
+      // will never contain that
+      execute<TBranchWithLink>,
+      execute<TBranchWithLink>,
+      // 0b11110x bl/blx prefix
+      execute<TBranchWithLink>,
+      execute<TBranchWithLink>,
+      // 0b11111x bl
+      execute<TBranchWithLink>,
+      execute<TBranchWithLink>,
   };
+
+  u8 thumb_execute(u16 ins, CpuState &state) {
+    return thumb_executor_map[ins >> 10](ins, state);
+  }
 }
